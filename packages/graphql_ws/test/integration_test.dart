@@ -5,6 +5,8 @@
 @Tags(['integration'])
 library;
 
+import 'dart:async';
+
 import 'package:graphql_ws/graphql_ws.dart';
 import 'package:graphql_ws_test_server/graphql_ws_test_server.dart';
 import 'package:test/test.dart';
@@ -20,10 +22,19 @@ void main() {
     await server.dispose();
   });
 
-  Client buildClient() {
+  Client buildClient({
+    int retryAttempts = 0,
+    Duration keepAlive = Duration.zero,
+    FutureOr<Map<String, Object?>?> Function()? connectionParams,
+    bool lazy = true,
+  }) {
     return createClient(
       url: () => server.uri,
-      retryAttempts: 0,
+      retryAttempts: retryAttempts,
+      keepAlive: keepAlive,
+      connectionParams: connectionParams,
+      lazy: lazy,
+      retryWait: (_) => Future<void>.delayed(const Duration(milliseconds: 10)),
     );
   }
 
@@ -101,4 +112,199 @@ void main() {
     expect((captured! as List<GraphQLFormattedError>).first.message,
         equals('kaboom'));
   });
+
+  test('keep-alive: client sends Ping, observes Pong from server', () async {
+    server.register('long', (payload) => _neverEnding());
+
+    final client = buildClient(keepAlive: const Duration(milliseconds: 50));
+    addTearDown(client.dispose);
+
+    final pingSent = Completer<void>();
+    final pongReceived = Completer<void>();
+    client.on<PingEvent>((e) {
+      if (!e.received && !pingSent.isCompleted) pingSent.complete();
+    });
+    client.on<PongEvent>((e) {
+      if (e.received && !pongReceived.isCompleted) pongReceived.complete();
+    });
+
+    // Keep a subscription open so the connection stays up.
+    final sub = client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(
+            query: 'subscription Long { tick }',
+            operationName: 'long',
+          ),
+        )
+        .listen((_) {});
+    addTearDown(sub.cancel);
+
+    await pingSent.future.timeout(const Duration(seconds: 2));
+    await pongReceived.future.timeout(const Duration(seconds: 2));
+  });
+
+  test('connectionParams: server receives the payload in connection_init',
+      () async {
+    Map<String, Object?>? captured;
+    server.onConnectionInit = (payload) {
+      captured = payload;
+      return null;
+    };
+    server.register('hello', (payload) {
+      return Stream.value(<String, Object?>{'data': {'hello': 'world'}});
+    });
+
+    final client = buildClient(
+      connectionParams: () => {'authToken': 'shibboleth'},
+    );
+    addTearDown(client.dispose);
+
+    await client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(
+            query: 'query Hello { hello }',
+            operationName: 'hello',
+          ),
+        )
+        .single;
+
+    expect(captured, equals({'authToken': 'shibboleth'}));
+  });
+
+  test('retry: reconnects and resumes subscription after server kills socket',
+      () async {
+    var subscribeCount = 0;
+    server.register('counter', (payload) async* {
+      subscribeCount++;
+      for (var i = 0; i < 100; i++) {
+        yield <String, Object?>{
+          'data': {'count': i},
+        };
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+    });
+
+    final client = buildClient(retryAttempts: 3);
+    addTearDown(client.dispose);
+
+    final connections = <ConnectedEvent>[];
+    client.on<ConnectedEvent>(connections.add);
+
+    final received = <int>[];
+    final got5 = Completer<void>();
+    final got5AfterRetry = Completer<void>();
+    final sub = client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(
+            query: 'subscription Counter { count }',
+            operationName: 'counter',
+          ),
+        )
+        .listen((r) {
+      received.add(r.data!['count']! as int);
+      if (received.length == 5 && !got5.isCompleted) got5.complete();
+      if (connections.length >= 2 && !got5AfterRetry.isCompleted) {
+        got5AfterRetry.complete();
+      }
+    });
+    addTearDown(sub.cancel);
+
+    await got5.future.timeout(const Duration(seconds: 2));
+    await server.killActiveConnections();
+    await got5AfterRetry.future.timeout(const Duration(seconds: 2));
+
+    expect(connections.length, greaterThanOrEqualTo(2),
+        reason: 'client should have reconnected at least once');
+    expect(connections.last.wasRetry, isTrue);
+    expect(subscribeCount, greaterThanOrEqualTo(2),
+        reason: 'subscription should have been re-issued after reconnect');
+  });
+
+  test('concurrent: multiple subscriptions on one socket are independent',
+      () async {
+    server.register('a', (payload) async* {
+      for (var i = 0; i < 3; i++) {
+        yield <String, Object?>{
+          'data': {'src': 'a', 'n': i},
+        };
+      }
+    });
+    server.register('b', (payload) async* {
+      for (var i = 0; i < 3; i++) {
+        yield <String, Object?>{
+          'data': {'src': 'b', 'n': i + 100},
+        };
+      }
+    });
+
+    final client = buildClient();
+    addTearDown(client.dispose);
+
+    final aFuture = client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(query: 's', operationName: 'a'),
+        )
+        .toList();
+    final bFuture = client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(query: 's', operationName: 'b'),
+        )
+        .toList();
+
+    final aResults = await aFuture;
+    final bResults = await bFuture;
+
+    expect(aResults.map((r) => r.data!['n']).toList(), equals([0, 1, 2]));
+    expect(bResults.map((r) => r.data!['n']).toList(), equals([100, 101, 102]));
+    expect(server.connectedClients, equals(1),
+        reason: 'both subscriptions should share one socket');
+  });
+
+  test('lazy: connects on first subscribe, disconnects after last unsubscribe',
+      () async {
+    server.register('hello', (payload) {
+      return Stream.value(<String, Object?>{'data': {'hello': 'world'}});
+    });
+
+    final client = buildClient();
+    addTearDown(client.dispose);
+
+    expect(server.connectedClients, equals(0),
+        reason: 'no socket should exist before first subscribe');
+
+    await client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(
+            query: 'query Hello { hello }',
+            operationName: 'hello',
+          ),
+        )
+        .single;
+
+    await _eventually(() => server.connectedClients == 0,
+        label: 'socket closes after last unsubscribe');
+  });
+}
+
+/// A subscription stream that never emits values but never completes either.
+/// Useful for tests that need a long-lived connection (e.g. keep-alive).
+Stream<Map<String, Object?>> _neverEnding() {
+  final controller = StreamController<Map<String, Object?>>();
+  // Do not add anything; do not close. Cancelled when the subscriber cancels.
+  return controller.stream;
+}
+
+Future<void> _eventually(
+  bool Function() predicate, {
+  Duration timeout = const Duration(seconds: 2),
+  Duration step = const Duration(milliseconds: 10),
+  String label = 'predicate',
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (!predicate()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('Timed out waiting for: $label');
+    }
+    await Future<void>.delayed(step);
+  }
 }

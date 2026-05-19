@@ -30,9 +30,17 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 typedef OperationHandler = Stream<Map<String, Object?>> Function(
     Map<String, Object?> payload);
 
+/// Invoked when a `connection_init` frame arrives. Receives the payload
+/// (the `payload` field of the message, which may be `null`).
+///
+/// Return `null` to accept the connection (server responds with
+/// `connection_ack`). Return a close code (e.g. `4403`) to reject before
+/// acking — the server will close with that code instead.
+typedef ConnectionInitHandler = int? Function(Map<String, Object?>? payload);
+
 /// A running test server. Use [start] to construct; call [dispose] to stop.
 class GraphqlWsTestServer {
-  GraphqlWsTestServer._(this._httpServer, this._operations, this._sessions);
+  GraphqlWsTestServer._();
 
   /// Starts an HTTP server on [host]:[port] that upgrades any WebSocket
   /// request to a `graphql-transport-ws` session.
@@ -48,13 +56,12 @@ class GraphqlWsTestServer {
     final effectiveHost =
         host ?? Platform.environment['SERVER_HOST'] ?? 'localhost';
 
-    final operations = <String, OperationHandler>{};
-    final sessions = <_Session>{};
+    final server = GraphqlWsTestServer._();
 
     void onConnection(WebSocketChannel channel, String? subprotocol) {
-      final session = _Session(channel, operations);
-      sessions.add(session);
-      session.onClose = () => sessions.remove(session);
+      final session = _Session(channel, server);
+      server._sessions.add(session);
+      session.onClose = () => server._sessions.remove(session);
       session.start();
     }
 
@@ -63,12 +70,19 @@ class GraphqlWsTestServer {
       protocols: const ['graphql-transport-ws'],
     );
     final httpServer = await shelf_io.serve(handler, effectiveHost, port);
-    return GraphqlWsTestServer._(httpServer, operations, sessions);
+    server._httpServer = httpServer;
+    return server;
   }
 
-  final HttpServer _httpServer;
-  final Map<String, OperationHandler> _operations;
-  final Set<_Session> _sessions;
+
+  late HttpServer _httpServer;
+  final Map<String, OperationHandler> _operations = {};
+  final Set<_Session> _sessions = {};
+
+  /// Optional hook invoked for every `connection_init` frame. Lets tests
+  /// inspect the payload (e.g. assert auth tokens) or reject the connection
+  /// by returning a close code instead of `null`.
+  ConnectionInitHandler? onConnectionInit;
 
   /// The `ws://host:port` base URL. Path is unused (any path works).
   Uri get uri => Uri(
@@ -87,6 +101,18 @@ class GraphqlWsTestServer {
   /// the client tore the socket down cleanly.
   int get connectedClients => _sessions.length;
 
+  /// Forcibly closes every active session with [code] and [reason]. Used by
+  /// retry tests that need the client to observe a transport-level
+  /// disconnect originating from the server.
+  Future<void> killActiveConnections({
+    int code = 4499,
+    String reason = 'kill',
+  }) async {
+    for (final s in _sessions.toList()) {
+      await s.close(code, reason);
+    }
+  }
+
   /// Stops accepting new connections, closes all open sessions, and shuts
   /// down the HTTP server.
   Future<void> dispose() async {
@@ -99,10 +125,10 @@ class GraphqlWsTestServer {
 
 /// Per-connection protocol state.
 class _Session {
-  _Session(this._channel, this._operations);
+  _Session(this._channel, this._server);
 
   final WebSocketChannel _channel;
-  final Map<String, OperationHandler> _operations;
+  final GraphqlWsTestServer _server;
   final Map<String, StreamSubscription<Map<String, Object?>>> _subs = {};
   bool _initialised = false;
   bool _closed = false;
@@ -142,6 +168,14 @@ class _Session {
       case 'connection_init':
         if (_initialised) {
           _close(4429, 'too many initialisation requests');
+          return;
+        }
+        final rawPayload = msg['payload'];
+        final payload =
+            rawPayload is Map<String, Object?> ? rawPayload : null;
+        final rejectCode = _server.onConnectionInit?.call(payload);
+        if (rejectCode != null) {
+          _close(rejectCode, 'rejected by onConnectionInit');
           return;
         }
         _initialised = true;
@@ -185,7 +219,7 @@ class _Session {
       return;
     }
     final opName = payload['operationName'];
-    final handler = opName is String ? _operations[opName] : null;
+    final handler = opName is String ? _server._operations[opName] : null;
     if (handler == null) {
       _send({
         'id': id,

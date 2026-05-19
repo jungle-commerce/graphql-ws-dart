@@ -105,10 +105,10 @@ Two layers:
 One case is intentionally `skip:`ped with a tracking comment (listener throwing inside `ConnectedEvent` — semantics differ slightly).
 
 **Integration suite** (real shelf-backed server, tagged `integration`):
-- `test/integration_test.dart` — 3 cases against `graphql_ws_test_server` exercising the default `DartIoWebSocketAdapter` end-to-end (query/Complete, subscription stream, server-emitted error).
-- Mirror suite in `packages/graphql_ws_web_socket_channel_connector/test/integration_test.dart` — 5 cases against the same server but with `webSocketChannelConnector`. This is the only coverage of that adapter.
+- `test/integration_test.dart` — 8 cases against `graphql_ws_test_server` exercising the default `DartIoWebSocketAdapter` end-to-end: query/Complete, subscription stream, server-emitted error, keep-alive ping/pong, connectionParams round-trip, retry-after-server-disconnect, concurrent subscriptions sharing one socket, lazy connect/disconnect lifecycle.
+- Mirror suite in `packages/graphql_ws_web_socket_channel_connector/test/integration_test.dart` — 5 cases against the same server but with `webSocketChannelConnector`. Focused on adapter-shape behaviors (Next/Complete, cancellation, clean close, error frames) rather than re-testing client behavior already covered by the core integration suite.
 
-Total in `graphql_ws`: 131 unit + 3 integration = 134 + 1 skipped. Plus 5 integration in `graphql_ws_web_socket_channel_connector`. Grand total: 139 active.
+Total in `graphql_ws`: 131 unit + 8 integration = 139 + 1 skipped. Plus 5 integration in `graphql_ws_web_socket_channel_connector`. Grand total: 144 active.
 
 ### `packages/graphql_ws_web_socket_channel_connector` — web/cross-platform adapter
 
