@@ -1,0 +1,14 @@
+name: graphql_ws
+description: >-
+  Coherent, zero-dependency, lazy, simple, GraphQL over WebSocket Protocol
+  compliant client. Dart port of graphql-ws.
+version: 0.1.0-dev
+repository: https://github.com/enisdenjo/graphql-ws
+issue_tracker: https://github.com/enisdenjo/graphql-ws/issues
+
+environment:
+  sdk: ^3.4.0
+
+dev_dependencies:
+  lints: ^4.0.0
+  test: ^1.25.0

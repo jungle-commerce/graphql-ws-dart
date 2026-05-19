@@ -1,0 +1,6 @@
+tags:
+  smoke:
+  common:
+  client:
+
+timeout: 10s
