@@ -5,7 +5,7 @@ Coherent, zero-dependency, lazy, simple GraphQL over WebSocket Protocol complian
 A faithful port of the JavaScript [`graphql-ws`](https://github.com/enisdenjo/graphql-ws) client. Implements the [GraphQL over WebSocket Protocol](https://github.com/graphql/graphql-over-http/blob/main/rfcs/GraphQLOverWebSocket.md) (`graphql-transport-ws` sub-protocol).
 
 - **Zero external dependencies.**
-- **131 tests** covering protocol validation, lifecycle, retries, lazy/keepalive, ping/pong, terminate, and streaming.
+- **131 unit + 3 integration tests** covering protocol validation, lifecycle, retries, lazy/keepalive, ping/pong, terminate, streaming, plus end-to-end against a real `shelf`-backed graphql-transport-ws server.
 - Native transport via `dart:io.WebSocket`; Flutter web + custom transports via a small adapter.
 - **Strict typing throughout** — `Object?`, no `dynamic`; analyzer enforces `strict-casts`, `strict-inference`, `strict-raw-types`.
 
@@ -291,7 +291,10 @@ dart test -N 'lazy'       # tests whose names contain "lazy"
 dart test --tags client   # see dart_test.yaml for tag groups
 ```
 
-The test harness ([`test/utils/tserver.dart`](test/utils/tserver.dart)) is a scriptable `dart:io.HttpServer`-backed mock — tests drive `ConnectionAck`/`Next`/`Error`/`Complete` frames directly rather than running a real GraphQL server, keeping the suite dependency-free and fast.
+Two test layers:
+
+- **Unit suite** (`test/{common,client,smoke}_test.dart`) — runs against [`test/utils/tserver.dart`](test/utils/tserver.dart), a scriptable `dart:io.HttpServer`-backed mock that drives `ConnectionAck`/`Next`/`Error`/`Complete` frames directly. Fast, dependency-free.
+- **Integration suite** (`test/integration_test.dart`, tagged `integration`) — runs against the in-repo `graphql_ws_test_server` package, a real `shelf` + `shelf_web_socket` graphql-transport-ws server. Exercises the default `DartIoWebSocketAdapter` end-to-end.
 
 ## License
 

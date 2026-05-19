@@ -1,0 +1,263 @@
+/// A minimal `graphql-transport-ws` compliant WebSocket server for
+/// integration tests in this repo.
+///
+/// Not a real GraphQL executor — it dispatches incoming `subscribe` messages
+/// to operation handlers registered by name (`operationName` in the payload).
+/// Each handler returns a `Stream<Map<String, Object?>>` whose elements are
+/// emitted as `next` messages, followed by a `complete` when the stream
+/// closes. Stream errors are emitted as `error` messages.
+///
+/// Deliberately implements the protocol from scratch (no dependency on
+/// `graphql_ws`) so that integration tests can't pass just because client
+/// and server share buggy constants.
+library;
+
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:shelf/shelf_io.dart' as shelf_io;
+import 'package:shelf_web_socket/shelf_web_socket.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+
+/// Handler invoked when a `subscribe` message arrives. Receives the raw
+/// `payload` map (per protocol: `{query, operationName?, variables?, extensions?}`).
+///
+/// Yielded maps are sent verbatim as the `payload` of `next` messages — so
+/// `{'data': {...}, 'errors': [...]}` is the typical shape, mirroring
+/// GraphQL's `FormattedExecutionResult`. Stream errors become `error`
+/// messages; close the stream (return) to emit `complete`.
+typedef OperationHandler = Stream<Map<String, Object?>> Function(
+    Map<String, Object?> payload);
+
+/// A running test server. Use [start] to construct; call [dispose] to stop.
+class GraphqlWsTestServer {
+  GraphqlWsTestServer._(this._httpServer, this._operations, this._sessions);
+
+  /// Starts an HTTP server on [host]:[port] that upgrades any WebSocket
+  /// request to a `graphql-transport-ws` session.
+  ///
+  /// [host] defaults to the `SERVER_HOST` env var, then `'localhost'`. Use
+  /// `'0.0.0.0'` to expose the server on the network (relevant when an
+  /// emulator or remote device must reach the host). [port] defaults to 0,
+  /// which picks a random free port; read [uri] after start to discover it.
+  static Future<GraphqlWsTestServer> start({
+    String? host,
+    int port = 0,
+  }) async {
+    final effectiveHost =
+        host ?? Platform.environment['SERVER_HOST'] ?? 'localhost';
+
+    final operations = <String, OperationHandler>{};
+    final sessions = <_Session>{};
+
+    void onConnection(WebSocketChannel channel, String? subprotocol) {
+      final session = _Session(channel, operations);
+      sessions.add(session);
+      session.onClose = () => sessions.remove(session);
+      session.start();
+    }
+
+    final handler = webSocketHandler(
+      onConnection,
+      protocols: const ['graphql-transport-ws'],
+    );
+    final httpServer = await shelf_io.serve(handler, effectiveHost, port);
+    return GraphqlWsTestServer._(httpServer, operations, sessions);
+  }
+
+  final HttpServer _httpServer;
+  final Map<String, OperationHandler> _operations;
+  final Set<_Session> _sessions;
+
+  /// The `ws://host:port` base URL. Path is unused (any path works).
+  Uri get uri => Uri(
+        scheme: 'ws',
+        host: _httpServer.address.host,
+        port: _httpServer.port,
+      );
+
+  /// Registers a handler for `subscribe` messages whose payload's
+  /// `operationName` equals [name]. Overwrites any previous handler.
+  void register(String name, OperationHandler handler) {
+    _operations[name] = handler;
+  }
+
+  /// Number of currently-connected clients. Useful in tests that assert
+  /// the client tore the socket down cleanly.
+  int get connectedClients => _sessions.length;
+
+  /// Stops accepting new connections, closes all open sessions, and shuts
+  /// down the HTTP server.
+  Future<void> dispose() async {
+    for (final s in _sessions.toList()) {
+      await s.close(1000, 'server shutdown');
+    }
+    await _httpServer.close(force: true);
+  }
+}
+
+/// Per-connection protocol state.
+class _Session {
+  _Session(this._channel, this._operations);
+
+  final WebSocketChannel _channel;
+  final Map<String, OperationHandler> _operations;
+  final Map<String, StreamSubscription<Map<String, Object?>>> _subs = {};
+  bool _initialised = false;
+  bool _closed = false;
+  void Function()? onClose;
+
+  void start() {
+    _channel.stream.listen(
+      _onFrame,
+      onDone: _onDone,
+      onError: (Object _) => _onDone(),
+    );
+  }
+
+  void _onFrame(Object? frame) {
+    if (frame is! String) {
+      _close(4400, 'expected text frame');
+      return;
+    }
+    final Map<String, Object?> msg;
+    try {
+      final decoded = jsonDecode(frame);
+      if (decoded is! Map<String, Object?>) {
+        _close(4400, 'message must be a JSON object');
+        return;
+      }
+      msg = decoded;
+    } on FormatException {
+      _close(4400, 'invalid JSON');
+      return;
+    }
+    final type = msg['type'];
+    if (type is! String) {
+      _close(4400, 'missing type');
+      return;
+    }
+    switch (type) {
+      case 'connection_init':
+        if (_initialised) {
+          _close(4429, 'too many initialisation requests');
+          return;
+        }
+        _initialised = true;
+        _send({'type': 'connection_ack'});
+      case 'ping':
+        _send({
+          'type': 'pong',
+          if (msg['payload'] != null) 'payload': msg['payload'],
+        });
+      case 'pong':
+        break;
+      case 'subscribe':
+        if (!_initialised) {
+          _close(4401, 'unauthorized');
+          return;
+        }
+        _handleSubscribe(msg);
+      case 'complete':
+        final id = msg['id'];
+        if (id is String) {
+          unawaited(_subs.remove(id)?.cancel());
+        }
+      default:
+        _close(4400, 'unknown message type: $type');
+    }
+  }
+
+  void _handleSubscribe(Map<String, Object?> msg) {
+    final id = msg['id'];
+    if (id is! String) {
+      _close(4400, 'subscribe missing id');
+      return;
+    }
+    if (_subs.containsKey(id)) {
+      _close(4409, 'subscriber already exists');
+      return;
+    }
+    final payload = msg['payload'];
+    if (payload is! Map<String, Object?>) {
+      _close(4400, 'subscribe missing payload');
+      return;
+    }
+    final opName = payload['operationName'];
+    final handler = opName is String ? _operations[opName] : null;
+    if (handler == null) {
+      _send({
+        'id': id,
+        'type': 'error',
+        'payload': [
+          {'message': 'no handler registered for operationName: $opName'},
+        ],
+      });
+      return;
+    }
+    final Stream<Map<String, Object?>> stream;
+    try {
+      stream = handler(payload);
+    } catch (e) {
+      _send({
+        'id': id,
+        'type': 'error',
+        'payload': [
+          {'message': e.toString()},
+        ],
+      });
+      return;
+    }
+    _subs[id] = stream.listen(
+      (data) => _send({'id': id, 'type': 'next', 'payload': data}),
+      onError: (Object err) {
+        final List<Object?> errors;
+        if (err is List) {
+          errors = err.cast<Object?>();
+        } else {
+          errors = [
+            {'message': err.toString()},
+          ];
+        }
+        _send({'id': id, 'type': 'error', 'payload': errors});
+        _subs.remove(id);
+      },
+      onDone: () {
+        _send({'id': id, 'type': 'complete'});
+        _subs.remove(id);
+      },
+    );
+  }
+
+  void _send(Map<String, Object?> msg) {
+    if (_closed) return;
+    _channel.sink.add(jsonEncode(msg));
+  }
+
+  void _close(int code, String reason) {
+    if (_closed) return;
+    _closed = true;
+    unawaited(_channel.sink.close(code, reason));
+  }
+
+  Future<void> close(int code, String reason) async {
+    _close(code, reason);
+    await _drain();
+  }
+
+  void _onDone() {
+    if (_closed) return;
+    _closed = true;
+    unawaited(_drain());
+    onClose?.call();
+  }
+
+  Future<void> _drain() async {
+    final pending = _subs.values.toList();
+    _subs.clear();
+    for (final s in pending) {
+      await s.cancel();
+    }
+  }
+}

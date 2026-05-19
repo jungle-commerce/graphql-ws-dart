@@ -1,0 +1,19 @@
+name: graphql_ws_test_server
+description: >-
+  Minimal graphql-transport-ws compliant WebSocket server used by integration
+  tests in this repo. Not published.
+publish_to: none
+version: 0.0.0
+
+environment:
+  sdk: ^3.5.0
+
+resolution: workspace
+
+dependencies:
+  shelf: ^1.4.0
+  shelf_web_socket: ^3.0.0
+  web_socket_channel: ^3.0.0
+
+dev_dependencies:
+  lints: ^4.0.0

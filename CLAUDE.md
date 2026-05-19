@@ -18,6 +18,8 @@ graphql-ws-dart/
 │   │   ├── lib/
 │   │   ├── test/
 │   │   └── example/main.dart
+│   ├── graphql_ws_test_server/                     shelf-backed graphql-transport-ws server for integration tests; not published
+│   │   └── lib/graphql_ws_test_server.dart
 │   └── graphql_ws_web_socket_channel_connector/    web_socket_channel-backed WebSocketConnector
 │       └── lib/graphql_ws_web_socket_channel_connector.dart
 └── LICENSE                                          shared across all packages
@@ -93,15 +95,28 @@ Sealed `ClientEvent` hierarchy. Consumers can either narrow via the type paramet
 
 #### Tests cover
 
+Two layers:
+
+**Unit suite** (no real GraphQL execution; tserver mocks frames):
 - `test/common_test.dart` — 73 cases, full port of upstream `common.test.ts` (every `it.each` row).
 - `test/client_test.dart` — 54 cases across top-level + 7 `group`s (ping/pong, query op, subscription op, concurrency, lazy, reconnecting, events, stream, robustness). Substantially mirrors `client.test.ts`.
 - `test/smoke_test.dart` — 4 wiring sanity checks.
 
 One case is intentionally `skip:`ped with a tracking comment (listener throwing inside `ConnectedEvent` — semantics differ slightly).
 
+**Integration suite** (real shelf-backed server, tagged `integration`):
+- `test/integration_test.dart` — 3 cases against `graphql_ws_test_server` exercising the default `DartIoWebSocketAdapter` end-to-end (query/Complete, subscription stream, server-emitted error).
+- Mirror suite in `packages/graphql_ws_web_socket_channel_connector/test/integration_test.dart` — 5 cases against the same server but with `webSocketChannelConnector`. This is the only coverage of that adapter.
+
+Total in `graphql_ws`: 131 unit + 3 integration = 134 + 1 skipped. Plus 5 integration in `graphql_ws_web_socket_channel_connector`. Grand total: 139 active.
+
 ### `packages/graphql_ws_web_socket_channel_connector` — web/cross-platform adapter
 
 Single-file package. Exposes `webSocketChannelConnector` — a `WebSocketConnector` backed by `package:web_socket_channel`. Tracks locally-initiated close codes for the same reason `DartIoWebSocketAdapter` does. Lives in its own package so the `graphql_ws` core stays zero-dep.
+
+### `packages/graphql_ws_test_server` — integration-test backend
+
+`publish_to: none`. Minimal `graphql-transport-ws` compliant server built on `shelf` + `shelf_web_socket`. Operations are registered by `operationName`, dispatched to a handler returning `Stream<Map<String, Object?>>`. Stream values become `next` messages, stream errors become `error` messages, stream-done becomes `complete`. Reads `SERVER_HOST` env var (defaults to `localhost`); pass `host: '0.0.0.0'` to expose on the network — relevant for emulators / Firebase Test Lab in the future. Deliberately does NOT depend on `graphql_ws`, so server bugs can't paper over client bugs.
 
 ## Gotchas
 

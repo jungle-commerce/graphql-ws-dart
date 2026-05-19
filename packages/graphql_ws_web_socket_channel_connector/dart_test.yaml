@@ -1,7 +1,4 @@
 tags:
-  smoke:
-  common:
-  client:
   integration:
 
 timeout: 10s
