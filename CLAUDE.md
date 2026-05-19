@@ -4,31 +4,53 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Dart port of [`graphql-ws`](https://github.com/enisdenjo/graphql-ws) (client only). Implements the [GraphQL over WebSocket Protocol](https://github.com/graphql/graphql-over-http/blob/main/rfcs/GraphQLOverWebSocket.md) (`graphql-transport-ws` sub-protocol). The JS reference clone lives at `~/Projects/graphql-ws/` — read it first when porting new behavior or debugging protocol-level discrepancies.
+A monorepo housing a Dart port of [`graphql-ws`](https://github.com/enisdenjo/graphql-ws) (client only) and its companion packages. Implements the [GraphQL over WebSocket Protocol](https://github.com/graphql/graphql-over-http/blob/main/rfcs/GraphQLOverWebSocket.md) (`graphql-transport-ws` sub-protocol). The JS reference clone lives at `~/Projects/graphql-ws/` — read it first when porting new behavior or debugging protocol-level discrepancies.
+
+## Repo layout
+
+This is a [pub workspace](https://dart.dev/tools/pub/workspaces) (Dart 3.5+). The root `pubspec.yaml` lists workspace members; each package has `resolution: workspace` and shares one resolved set of deps.
+
+```
+graphql-ws-dart/
+├── pubspec.yaml                                    workspace root (publish_to: none)
+├── packages/
+│   ├── graphql_ws/                                 zero-dep core client
+│   │   ├── lib/
+│   │   ├── test/
+│   │   └── example/main.dart
+│   └── graphql_ws_web_socket_channel_connector/    web_socket_channel-backed WebSocketConnector
+│       └── lib/graphql_ws_web_socket_channel_connector.dart
+└── LICENSE                                          shared across all packages
+```
 
 ## Hard constraints
 
-- **Zero external dependencies in `lib/`.** `pubspec.yaml` has no `dependencies:` section. Use `Object?` and explicit casts at JSON boundaries instead of pulling in helper packages. Test-only deps (`test`, `lints`) live in `dev_dependencies`.
-- **No `dynamic`.** Use `Object?` everywhere a JSON-ish value crosses a boundary. The analyzer is configured with `strict-casts`/`strict-inference`/`strict-raw-types`, so `dynamic` will surface as a warning.
+- **Zero external dependencies in `packages/graphql_ws/lib/`.** Its `pubspec.yaml` has no `dependencies:` section. Use `Object?` and explicit casts at JSON boundaries instead of pulling in helper packages. Test-only deps (`test`, `lints`) live in `dev_dependencies`. This constraint applies ONLY to `graphql_ws` — companion packages like `graphql_ws_web_socket_channel_connector` can depend on whatever they bridge.
+- **No `dynamic`.** Use `Object?` everywhere a JSON-ish value crosses a boundary. The analyzer is configured with `strict-casts`/`strict-inference`/`strict-raw-types`, so `dynamic` will surface as a warning. Same rule for every package in this repo.
 - **1:1 with the JS client for protocol semantics.** When in doubt about behavior (retry classification, lazy-close debouncing, ack-timeout, terminate, etc.), read `~/Projects/graphql-ws/src/client.ts` and mirror it. Tests in `~/Projects/graphql-ws/tests/client.test.ts` are the contract.
-- **Don't add a `connector` default that imports `dart:html` or `package:web_socket_channel`.** The default uses `dart:io.WebSocket` and that is intentional. Flutter-web users supply their own adapter (see `example/web_socket_channel_adapter.dart`).
+- **Don't add a `connector` default to `graphql_ws` that imports `dart:html` or `package:web_socket_channel`.** The default uses `dart:io.WebSocket` and that is intentional. Flutter-web users add the `graphql_ws_web_socket_channel_connector` companion package.
 
 ## Common commands
 
+Run from the repo root — `pub` resolves the whole workspace at once.
+
 ```sh
-dart pub get               # resolve deps
-dart analyze               # 0 issues expected; treat any output as a regression
-dart test                  # full suite, ~1s, 131 cases + 1 skipped
-dart test test/client_test.dart                      # one file
-dart test -N 'lazy should disconnect after lazyClose'  # one case by name substring
-dart test --tags client                              # only client/common/smoke tag groups (see dart_test.yaml)
+dart pub get                                            # resolve deps across the workspace
+dart analyze                                            # analyze every package; 0 issues expected
+dart test packages/graphql_ws                           # run one package's tests
+dart test packages/graphql_ws/test/client_test.dart     # one file
+dart test -N 'lazy should disconnect after lazyClose'   # one case by name substring (run inside a package dir)
 ```
 
-There is no build step — this is a library, not an app.
+For per-package work, `cd` into the package directory and run `dart test`/`dart analyze` directly — that's what most of the existing notes assume.
+
+There is no build step.
 
 ## Architecture
 
-### Layering (top of `lib/`)
+### `packages/graphql_ws` — core client
+
+Layering (top of `lib/`):
 
 ```
 graphql_ws.dart           public re-exports
@@ -42,7 +64,7 @@ graphql_ws.dart           public re-exports
 
 `graphql_ws.dart` re-exports the user-facing API; internal helpers (e.g. `_GraphqlWsClient`, `_ConnectionAttempt`) stay private.
 
-### The state machine ([lib/src/client.dart](lib/src/client.dart))
+#### The state machine ([packages/graphql_ws/lib/src/client.dart](packages/graphql_ws/lib/src/client.dart))
 
 This is where almost all the subtlety lives. The shape mirrors the JS reference closely; if you're tempted to "simplify", read the corresponding JS first.
 
@@ -55,27 +77,31 @@ This is where almost all the subtlety lives. The shape mirrors the JS reference 
   Plus a `handled` flag so terminate() + adapter.done don't double-fire teardown, and a `failureHandler` closure exposed so `terminate()` can synthesise a `TerminatedCloseEvent` without duplicating onSocketFailure's logic.
 - **Retry classification** in `_shouldRetryConnectOrThrow` — the fatal-codes set is taken from the JS impl; preserve it verbatim. Retries reset to zero only when a connection is *acknowledged*, not merely established.
 
-### `WebSocketAdapter` ([lib/src/websocket_adapter.dart](lib/src/websocket_adapter.dart))
+#### `WebSocketAdapter` ([packages/graphql_ws/lib/src/websocket_adapter.dart](packages/graphql_ws/lib/src/websocket_adapter.dart))
 
 Transport injection point. `DartIoWebSocketAdapter` wraps `dart:io.WebSocket` and **tracks locally-initiated close codes** — `dart:io` exposes `closeCode` reflecting only the *remote* side, so without this tracking, tests asserting `code == 4005` (locally initiated) would see 1005 instead. Don't remove the `_localCloseCode`/`_localCloseInitiated` plumbing.
 
-### Events ([lib/src/events.dart](lib/src/events.dart))
+#### Events ([packages/graphql_ws/lib/src/events.dart](packages/graphql_ws/lib/src/events.dart))
 
 Sealed `ClientEvent` hierarchy. Consumers can either narrow via the type parameter (`client.on<ConnectedEvent>(...)`) or pattern-match exhaustively (`switch (event) { case ConnectedEvent(): ... }`). The wrapping in `_GraphqlWsClient.on` is an `is E` filter — types are erased at runtime, so the filter does the discrimination.
 
-### Test harness ([test/utils/](test/utils/))
+#### Test harness ([packages/graphql_ws/test/utils/](packages/graphql_ws/test/utils/))
 
 - **`tserver.dart`** — scriptable WS server built on `dart:io.HttpServer`. **Not** a graphql-ws server; tests drive `ConnectionAck`, `Next`, `Error`, `Complete` frames manually. The JS reference uses a full GraphQL server for tests; we deliberately don't, so subscription-protocol behavior can be asserted without standing up a schema.
 - **`tsub.dart`** — `TSubscribe.start<TData, TExtensions>(client, payload)` mirrors the JS `tsubscribe(client, payload)` helper. Returns waitable `waitForNext`/`waitForError`/`waitForComplete` futures.
 - **`deferred.dart`** — `Completer` wrapper for explicit rendezvous in tests.
 
-### Tests cover
+#### Tests cover
 
 - `test/common_test.dart` — 73 cases, full port of upstream `common.test.ts` (every `it.each` row).
 - `test/client_test.dart` — 54 cases across top-level + 7 `group`s (ping/pong, query op, subscription op, concurrency, lazy, reconnecting, events, stream, robustness). Substantially mirrors `client.test.ts`.
 - `test/smoke_test.dart` — 4 wiring sanity checks.
 
 One case is intentionally `skip:`ped with a tracking comment (listener throwing inside `ConnectedEvent` — semantics differ slightly).
+
+### `packages/graphql_ws_web_socket_channel_connector` — web/cross-platform adapter
+
+Single-file package. Exposes `webSocketChannelConnector` — a `WebSocketConnector` backed by `package:web_socket_channel`. Tracks locally-initiated close codes for the same reason `DartIoWebSocketAdapter` does. Lives in its own package so the `graphql_ws` core stays zero-dep.
 
 ## Gotchas
 

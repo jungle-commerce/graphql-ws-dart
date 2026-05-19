@@ -1,0 +1,21 @@
+name: graphql_ws_web_socket_channel_connector
+description: >-
+  A graphql_ws WebSocketConnector backed by package:web_socket_channel. Lets
+  graphql_ws run on Flutter web (and anywhere else web_socket_channel is
+  supported) without dropping graphql_ws's zero-dependency core.
+version: 0.1.0-dev
+repository: https://github.com/jungle-commerce/graphql-ws-dart
+issue_tracker: https://github.com/jungle-commerce/graphql-ws-dart/issues
+
+environment:
+  sdk: ^3.5.0
+
+resolution: workspace
+
+dependencies:
+  graphql_ws: ^0.1.0-dev
+  web_socket_channel: ^3.0.0
+
+dev_dependencies:
+  lints: ^4.0.0
+  test: ^1.25.0

@@ -1,35 +1,29 @@
-/// Drop-in `WebSocketAdapter` backed by `package:web_socket_channel`.
+/// A `WebSocketConnector` for [`graphql_ws`][graphql_ws] backed by
+/// [`package:web_socket_channel`][web_socket_channel].
 ///
-/// Use this on Flutter web (where `dart:io.WebSocket` is unavailable) or
-/// anywhere you already depend on `web_socket_channel`. Copy this file
-/// into your app — `graphql_ws` itself has zero external dependencies, so
-/// it does not ship a binding to `web_socket_channel`.
-///
-/// Add the dependency to your app's pubspec:
-///
-/// ```yaml
-/// dependencies:
-///   graphql_ws: ^0.1.0
-///   web_socket_channel: ^3.0.0
-/// ```
-///
-/// Then pass [webSocketChannelConnector] as the client's `connector`:
+/// `graphql_ws` itself has zero external dependencies and ships a
+/// `dart:io.WebSocket` transport by default. That works on the VM and on
+/// Flutter mobile/desktop, but not on the web. This package bridges
+/// `package:web_socket_channel` — which works on VM, web, and Flutter — so
+/// the same client code runs everywhere.
 ///
 /// ```dart
+/// import 'package:graphql_ws/graphql_ws.dart';
+/// import 'package:graphql_ws_web_socket_channel_connector/graphql_ws_web_socket_channel_connector.dart';
+///
 /// final client = createClient(
 ///   url: () => Uri.parse('wss://example.com/graphql'),
 ///   connector: webSocketChannelConnector,
 /// );
 /// ```
+///
+/// [graphql_ws]: https://pub.dev/packages/graphql_ws
+/// [web_socket_channel]: https://pub.dev/packages/web_socket_channel
 library;
 
 import 'dart:async';
 
 import 'package:graphql_ws/graphql_ws.dart';
-// `web_socket_channel` is intentionally NOT a dependency of `graphql_ws` —
-// see the doc-comment above. Copy this file into your own package which
-// does depend on it.
-// ignore: depend_on_referenced_packages
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// A [WebSocketConnector] backed by `package:web_socket_channel`. Works on
