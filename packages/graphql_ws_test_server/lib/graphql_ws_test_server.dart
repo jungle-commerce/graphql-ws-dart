@@ -98,6 +98,11 @@ class GraphqlWsTestServer {
   int get receivedPongCount => _receivedPongCount;
   int _receivedPongCount = 0;
 
+  /// Whether the server replies to client `ping` frames with a `pong`.
+  /// Set to `false` to simulate a frozen ("zombie") socket — the connection
+  /// stays open but liveness probes go unanswered.
+  bool respondToPings = true;
+
   /// Sends a `ping` frame to every connected client. Used to verify that the
   /// client responds with a `pong` (or, with [disablePong: true], stays silent).
   void pingAllClients({Map<String, Object?>? payload}) {
@@ -200,10 +205,12 @@ class _Session {
             rawPayload is Map<String, Object?> ? rawPayload : null;
         unawaited(_processInit(payload));
       case 'ping':
-        _send({
-          'type': 'pong',
-          if (msg['payload'] != null) 'payload': msg['payload'],
-        });
+        if (_server.respondToPings) {
+          _send({
+            'type': 'pong',
+            if (msg['payload'] != null) 'payload': msg['payload'],
+          });
+        }
       case 'pong':
         _server._receivedPongCount++;
         break;

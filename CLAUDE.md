@@ -20,10 +20,14 @@ graphql-ws-dart/
 │   │   └── example/main.dart
 │   ├── graphql_ws_test_server/                     shelf-backed graphql-transport-ws server for integration tests; not published
 │   │   └── lib/graphql_ws_test_server.dart
-│   └── graphql_ws_web_socket_channel_connector/    web_socket_channel-backed WebSocketConnector
-│       └── lib/graphql_ws_web_socket_channel_connector.dart
+│   ├── graphql_ws_web_socket_channel_connector/    web_socket_channel-backed WebSocketConnector
+│   │   └── lib/graphql_ws_web_socket_channel_connector.dart
+│   └── graphql_ws_flutter/                         Flutter integration: lifecycle + connectivity aware reconnection
+│       └── lib/graphql_ws_flutter.dart
 └── LICENSE                                          shared across all packages
 ```
+
+**`graphql_ws_flutter` depends on the Flutter SDK.** Because of this the whole workspace is resolved with `flutter pub get` at the root, not `dart pub get`. `dart analyze` still analyzes everything; the Flutter package's tests run under `flutter test`, the other three under `dart test`.
 
 ## Hard constraints
 
@@ -37,9 +41,10 @@ graphql-ws-dart/
 Run from the repo root — `pub` resolves the whole workspace at once.
 
 ```sh
-dart pub get                                            # resolve deps across the workspace
+flutter pub get                                         # resolve deps across the workspace (Flutter SDK needed)
 dart analyze                                            # analyze every package; 0 issues expected
-dart test packages/graphql_ws                           # run one package's tests
+dart test packages/graphql_ws                           # run one pure-Dart package's tests
+flutter test packages/graphql_ws_flutter                # run the Flutter package's tests
 dart test packages/graphql_ws/test/client_test.dart     # one file
 dart test -N 'lazy should disconnect after lazyClose'   # one case by name substring (run inside a package dir)
 ```
@@ -108,7 +113,7 @@ One case is intentionally `skip:`ped with a tracking comment (listener throwing 
 - `test/integration_test.dart` — 18 cases against `graphql_ws_test_server` exercising the default `DartIoWebSocketAdapter` end-to-end: query/Complete, subscription stream, server-emitted error, keep-alive ping/pong, connectionParams round-trip, retry-after-server-disconnect, concurrent subscriptions sharing one socket, lazy connect/disconnect lifecycle, connectionAckWaitTimeout (4504), fatal close code (no retry), non-lazy + onNonLazyError, retry exhaustion, lazyCloseTimeout debounce, shouldRetry override, server-ping → client-pong, disablePong, generateID, on-demand `ping()`.
 - Mirror suite in `packages/graphql_ws_web_socket_channel_connector/test/integration_test.dart` — 8 cases against the same server but with `webSocketChannelConnector`. Focused on adapter-shape behaviors (Next/Complete, cancellation, clean close, error frames, fatal close, retry exhaustion, connectionParams).
 
-Total in `graphql_ws`: 135 unit + 18 integration = 153 + 1 skipped. Plus 8 integration in `graphql_ws_web_socket_channel_connector`. Grand total: 161 active.
+Total in `graphql_ws`: 135 unit + 18 integration = 153 + 1 skipped. Plus 8 integration in `graphql_ws_web_socket_channel_connector` and 21 in `graphql_ws_flutter` (4 retry-wait + 12 manager + 2 integration + 3 widget). Grand total: 182 active.
 
 ### `packages/graphql_ws_web_socket_channel_connector` — web/cross-platform adapter
 
@@ -117,6 +122,19 @@ Single-file package. Exposes `webSocketChannelConnector` — a `WebSocketConnect
 ### `packages/graphql_ws_test_server` — integration-test backend
 
 `publish_to: none`. Minimal `graphql-transport-ws` compliant server built on `shelf` + `shelf_web_socket`. Operations are registered by `operationName`, dispatched to a handler returning `Stream<Map<String, Object?>>`. Stream values become `next` messages, stream errors become `error` messages, stream-done becomes `complete`. Reads `SERVER_HOST` env var (defaults to `localhost`); pass `host: '0.0.0.0'` to expose on the network — relevant for emulators / Firebase Test Lab in the future. Deliberately does NOT depend on `graphql_ws`, so server bugs can't paper over client bugs.
+
+Test-driving hooks: `onConnectionInit` (inspect/reject the init payload — `FutureOr`, so it can simulate a slow ack), `onSubscribe`, `killActiveConnections()`, `pingAllClients()`, `receivedPongCount`, and `respondToPings` (set `false` to simulate a frozen "zombie" socket — the connection stays open but liveness pings go unanswered).
+
+### `packages/graphql_ws_flutter` — Flutter lifecycle/connectivity integration
+
+Depends on `flutter` + `connectivity_plus`. Keeps a `Client`'s connection healthy on mobile, where backgrounding silently freezes or kills WebSocket sockets.
+
+- **`GraphqlWsConnectionManager`** — a `WidgetsBindingObserver`. On `resumed` it measures wall-clock background time: shorter than `trustWindow` → trust the socket; longer than `deadAfter` → `terminate()` immediately; in between → ping-probe with a watchdog (`verificationTimeout`), terminating unless a `pong` *or* a fresh `ConnectedEvent` proves liveness first. On a connectivity change it terminates directly. It only ever calls `Client.terminate()`/`ping()` — the client's own retry machinery does the reconnect/resubscribe. It never disposes the client.
+- **`GraphqlWsConnectionScope`** — a widget that attaches/detaches the manager with the tree.
+- **`connectivityAwareRetryWait`** — a `RetryWait` that parks reconnection attempts while offline instead of burning the `retryAttempts` budget.
+- **`ConnectivitySource`** — connectivity abstraction; `ConnectivityPlusSource` is the default, fakes are injected in tests.
+
+The manager's decision logic is unit-tested with a spy `Client` (deterministic, no sockets); `integration_test.dart` proves the real wiring with a live client + server. Driving lifecycle in tests: call `manager.didChangeAppLifecycleState(...)` directly, or `tester.binding.handleAppLifecycleStateChanged(...)` in widget tests (drive the full `resumed→inactive→hidden→paused` sequence — Flutter asserts on invalid transitions). Note `DateTime.now()` is real wall-clock even under `testWidgets` fake-async, so time-based paths use real `Future.delayed` waits.
 
 ## Gotchas
 
