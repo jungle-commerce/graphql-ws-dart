@@ -7,5 +7,6 @@ environment:
 workspace:
   - packages/graphql_ws
   - packages/graphql_ws_flutter
+  - packages/graphql_ws_flutter/example
   - packages/graphql_ws_test_server
   - packages/graphql_ws_web_socket_channel_connector

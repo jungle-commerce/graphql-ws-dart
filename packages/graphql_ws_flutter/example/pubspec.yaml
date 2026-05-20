@@ -1,0 +1,28 @@
+name: graphql_ws_flutter_example
+description: Self-contained demo for graphql_ws_flutter.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+  flutter: '>=3.10.0'
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  graphql_ws:
+    path: ../../graphql_ws
+  graphql_ws_flutter:
+    path: ../
+  graphql_ws_test_server:
+    path: ../../graphql_ws_test_server
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

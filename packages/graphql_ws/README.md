@@ -272,13 +272,13 @@ final client = createClient(
 
 See the dartdoc on `createClient` for the full spec on each parameter.
 
+## Flutter: lifecycle & flaky connectivity
+
+On mobile, the OS freezes or silently kills WebSocket sockets when an app is backgrounded, and connectivity flaps constantly. The companion [`graphql_ws_flutter`](../graphql_ws_flutter) package handles all of it — resume-time socket probing, connectivity-aware reconnects, and a `retryWait` that parks retries while offline instead of burning the budget. If you are building a Flutter app, use it rather than wiring `client.terminate()` into your own `WidgetsBindingObserver`.
+
 ## Status & roadmap
 
 Pre-release (`0.1.0-dev`). The protocol layer and connection state machine are stable and covered by tests, but the API may shift before 1.0.
-
-Not yet shipped, on the roadmap:
-
-- **Mobile-lifecycle aware adapter** — automatic `terminate()` on app backgrounding, network-change-aware reconnects, iOS/Android-specific socket-stuck heuristics. Apps that need this today should drive `client.terminate()` from their own `WidgetsBindingObserver` / `Connectivity` listeners.
 
 ## Testing
 
