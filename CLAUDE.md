@@ -105,10 +105,10 @@ Two layers:
 One case is intentionally `skip:`ped with a tracking comment (listener throwing inside `ConnectedEvent` — semantics differ slightly).
 
 **Integration suite** (real shelf-backed server, tagged `integration`):
-- `test/integration_test.dart` — 12 cases against `graphql_ws_test_server` exercising the default `DartIoWebSocketAdapter` end-to-end: query/Complete, subscription stream, server-emitted error, keep-alive ping/pong, connectionParams round-trip, retry-after-server-disconnect, concurrent subscriptions sharing one socket, lazy connect/disconnect lifecycle, connectionAckWaitTimeout (4504), fatal close code (no retry), non-lazy + onNonLazyError, retry exhaustion.
-- Mirror suite in `packages/graphql_ws_web_socket_channel_connector/test/integration_test.dart` — 5 cases against the same server but with `webSocketChannelConnector`. Focused on adapter-shape behaviors (Next/Complete, cancellation, clean close, error frames) rather than re-testing client behavior already covered by the core integration suite.
+- `test/integration_test.dart` — 17 cases against `graphql_ws_test_server` exercising the default `DartIoWebSocketAdapter` end-to-end: query/Complete, subscription stream, server-emitted error, keep-alive ping/pong, connectionParams round-trip, retry-after-server-disconnect, concurrent subscriptions sharing one socket, lazy connect/disconnect lifecycle, connectionAckWaitTimeout (4504), fatal close code (no retry), non-lazy + onNonLazyError, retry exhaustion, lazyCloseTimeout debounce, shouldRetry override, server-ping → client-pong, disablePong, generateID.
+- Mirror suite in `packages/graphql_ws_web_socket_channel_connector/test/integration_test.dart` — 8 cases against the same server but with `webSocketChannelConnector`. Focused on adapter-shape behaviors (Next/Complete, cancellation, clean close, error frames, fatal close, retry exhaustion, connectionParams).
 
-Total in `graphql_ws`: 131 unit + 12 integration = 143 + 1 skipped. Plus 5 integration in `graphql_ws_web_socket_channel_connector`. Grand total: 148 active.
+Total in `graphql_ws`: 131 unit + 17 integration = 148 + 1 skipped. Plus 8 integration in `graphql_ws_web_socket_channel_connector`. Grand total: 156 active.
 
 ### `packages/graphql_ws_web_socket_channel_connector` — web/cross-platform adapter
 

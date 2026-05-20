@@ -170,6 +170,98 @@ void main() {
     expect(errors, hasLength(1));
     expect(errors.first.message, equals('something broke'));
   });
+
+  test('fatal close code: server sends 4400, adapter surfaces it without retry',
+      () async {
+    server.onConnectionInit = (_) => 4400;
+
+    final connected = <ConnectedEvent>[];
+    final client = createClient(
+      url: () => server.uri,
+      connector: webSocketChannelConnector,
+      retryAttempts: 3,
+    );
+    addTearDown(client.dispose);
+    client.on<ConnectedEvent>(connected.add);
+
+    Object? captured;
+    try {
+      await client
+          .stream<Map<String, Object?>, Object?>(
+            const SubscribePayload(query: 'query { x }', operationName: 'x'),
+          )
+          .toList();
+    } catch (e) {
+      captured = e;
+    }
+
+    expect(captured, isA<LikeCloseEvent>());
+    expect((captured! as LikeCloseEvent).code, equals(4400));
+    expect(connected, isEmpty, reason: 'must not retry a fatal close code');
+  });
+
+  test('retry exhaustion via adapter: error surfaces after budget exhausted',
+      () async {
+    var attempts = 0;
+    server.onConnectionInit = (_) {
+      attempts++;
+      return 4403;
+    };
+
+    final client = createClient(
+      url: () => server.uri,
+      connector: webSocketChannelConnector,
+      retryAttempts: 2,
+      retryWait: (_) => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    addTearDown(client.dispose);
+
+    Object? captured;
+    try {
+      await client
+          .stream<Map<String, Object?>, Object?>(
+            const SubscribePayload(query: 'query { x }', operationName: 'x'),
+          )
+          .toList();
+    } catch (e) {
+      captured = e;
+    }
+
+    expect(attempts, equals(3)); // 1 initial + 2 retries
+    expect(captured, isA<LikeCloseEvent>());
+    expect((captured! as LikeCloseEvent).code, equals(4403));
+  });
+
+  test('connectionParams: server receives payload through web_socket_channel',
+      () async {
+    Map<String, Object?>? captured;
+    server.onConnectionInit = (payload) {
+      captured = payload;
+      return null;
+    };
+    server.register('hello', (payload) {
+      return Stream.value(<String, Object?>{'data': {'hello': 'world'}});
+    });
+
+    final client = createClient(
+      url: () => server.uri,
+      connector: webSocketChannelConnector,
+      retryAttempts: 0,
+      connectionParams: () => {'token': 'abc'},
+    );
+    addTearDown(client.dispose);
+
+    await client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(
+            query: 'query Hello { hello }',
+            operationName: 'hello',
+          ),
+        )
+        .single;
+
+    expect(captured, equals({'token': 'abc'}));
+  });
 }
 
 Future<void> _eventually(

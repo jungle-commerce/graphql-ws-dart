@@ -25,6 +25,7 @@ void main() {
   Client buildClient({
     int retryAttempts = 0,
     Duration keepAlive = Duration.zero,
+    Duration lazyCloseTimeout = Duration.zero,
     FutureOr<Map<String, Object?>?> Function()? connectionParams,
     bool lazy = true,
   }) {
@@ -32,6 +33,7 @@ void main() {
       url: () => server.uri,
       retryAttempts: retryAttempts,
       keepAlive: keepAlive,
+      lazyCloseTimeout: lazyCloseTimeout,
       connectionParams: connectionParams,
       lazy: lazy,
       retryWait: (_) => Future<void>.delayed(const Duration(milliseconds: 10)),
@@ -388,6 +390,159 @@ void main() {
     expect(attempts, equals(3));
     expect(captured, isA<LikeCloseEvent>());
     expect((captured! as LikeCloseEvent).code, equals(4403));
+  });
+
+  test('lazyCloseTimeout: socket stays open during debounce window', () async {
+    server.register('hello', (payload) {
+      return Stream.value(<String, Object?>{'data': {'hello': 'world'}});
+    });
+
+    final client = buildClient(
+      lazyCloseTimeout: const Duration(milliseconds: 150),
+    );
+    addTearDown(client.dispose);
+
+    await client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(
+            query: 'query Hello { hello }',
+            operationName: 'hello',
+          ),
+        )
+        .single;
+
+    // Immediately after the subscription ends the socket should still be open
+    // (debounce window hasn't expired).
+    expect(server.connectedClients, equals(1),
+        reason: 'socket must stay alive during lazyCloseTimeout window');
+
+    // After the window expires the socket should close.
+    await _eventually(() => server.connectedClients == 0,
+        timeout: const Duration(seconds: 1),
+        label: 'socket closes after lazyCloseTimeout');
+  });
+
+  test('shouldRetry override: custom predicate stops retry immediately',
+      () async {
+    var attempts = 0;
+    server.onConnectionInit = (_) {
+      attempts++;
+      return 4403; // non-fatal by default, but we'll refuse all retries
+    };
+
+    final client = createClient(
+      url: () => server.uri,
+      retryAttempts: 5,
+      retryWait: (_) => Future<void>.delayed(const Duration(milliseconds: 10)),
+      shouldRetry: (_) => false,
+    );
+    addTearDown(client.dispose);
+
+    Object? captured;
+    try {
+      await client
+          .stream<Map<String, Object?>, Object?>(
+            const SubscribePayload(query: 'query { x }', operationName: 'x'),
+          )
+          .toList();
+    } catch (e) {
+      captured = e;
+    }
+
+    expect(attempts, equals(1),
+        reason: 'shouldRetry: false must prevent any retry');
+    expect(captured, isA<LikeCloseEvent>());
+  });
+
+  test('server ping → client pongs by default', () async {
+    server.register('long', (payload) => _neverEnding());
+
+    final client = buildClient();
+    addTearDown(client.dispose);
+
+    final connected = Completer<void>();
+    client.on<ConnectedEvent>((_) {
+      if (!connected.isCompleted) connected.complete();
+    });
+
+    final sub = client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(
+            query: 'subscription { tick }',
+            operationName: 'long',
+          ),
+        )
+        .listen((_) {});
+    addTearDown(sub.cancel);
+
+    await connected.future.timeout(const Duration(seconds: 2));
+    server.pingAllClients();
+
+    await _eventually(() => server.receivedPongCount >= 1,
+        label: 'client sent pong in response to server ping');
+  });
+
+  test('disablePong: client stays silent when server pings', () async {
+    server.register('long', (payload) => _neverEnding());
+
+    final client = createClient(
+      url: () => server.uri,
+      retryAttempts: 0,
+      disablePong: true,
+    );
+    addTearDown(client.dispose);
+
+    final connected = Completer<void>();
+    client.on<ConnectedEvent>((_) {
+      if (!connected.isCompleted) connected.complete();
+    });
+
+    final sub = client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(
+            query: 'subscription { tick }',
+            operationName: 'long',
+          ),
+        )
+        .listen((_) {});
+    addTearDown(sub.cancel);
+
+    await connected.future.timeout(const Duration(seconds: 2));
+    server.pingAllClients();
+
+    // Give it time to arrive and respond (or not).
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(server.receivedPongCount, equals(0),
+        reason: 'disablePong must suppress the automatic pong reply');
+  });
+
+  test('generateID: custom id generator is used for subscription frames',
+      () async {
+    server.register('hello', (payload) {
+      return Stream.value(<String, Object?>{'data': {'hello': 'world'}});
+    });
+
+    final receivedIds = <String>[];
+    server.onSubscribe = (id, payload) => receivedIds.add(id);
+
+    const customId = 'my-custom-id-42';
+    final client = createClient(
+      url: () => server.uri,
+      retryAttempts: 0,
+      generateID: (_) => customId,
+    );
+    addTearDown(client.dispose);
+
+    await client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(
+            query: 'query Hello { hello }',
+            operationName: 'hello',
+          ),
+        )
+        .single;
+
+    expect(receivedIds, equals([customId]));
   });
 }
 

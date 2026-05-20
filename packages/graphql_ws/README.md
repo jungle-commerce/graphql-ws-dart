@@ -5,7 +5,7 @@ Coherent, zero-dependency, lazy, simple GraphQL over WebSocket Protocol complian
 A faithful port of the JavaScript [`graphql-ws`](https://github.com/enisdenjo/graphql-ws) client. Implements the [GraphQL over WebSocket Protocol](https://github.com/graphql/graphql-over-http/blob/main/rfcs/GraphQLOverWebSocket.md) (`graphql-transport-ws` sub-protocol).
 
 - **Zero external dependencies.**
-- **131 unit + 12 integration tests** covering protocol validation, lifecycle, retries, lazy/keepalive, ping/pong, terminate, streaming, plus end-to-end against a real `shelf`-backed graphql-transport-ws server.
+- **131 unit + 17 integration tests** covering protocol validation, lifecycle, retries, lazy/keepalive, ping/pong, terminate, streaming, plus end-to-end against a real `shelf`-backed graphql-transport-ws server.
 - Native transport via `dart:io.WebSocket`; Flutter web + custom transports via a small adapter.
 - **Strict typing throughout** — `Object?`, no `dynamic`; analyzer enforces `strict-casts`, `strict-inference`, `strict-raw-types`.
 

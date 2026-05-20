@@ -88,6 +88,24 @@ class GraphqlWsTestServer {
   /// by returning a close code instead of `null`.
   ConnectionInitHandler? onConnectionInit;
 
+  /// Invoked when a `subscribe` message arrives, before the handler runs.
+  /// Receives the subscription id and the raw payload. Useful for asserting
+  /// that the client sent a specific id (e.g. from a custom [generateID]).
+  void Function(String id, Map<String, Object?> payload)? onSubscribe;
+
+  /// Number of `pong` messages received from clients since the server started.
+  /// Reset to 0 per test by starting a fresh server in setUp.
+  int get receivedPongCount => _receivedPongCount;
+  int _receivedPongCount = 0;
+
+  /// Sends a `ping` frame to every connected client. Used to verify that the
+  /// client responds with a `pong` (or, with [disablePong: true], stays silent).
+  void pingAllClients({Map<String, Object?>? payload}) {
+    for (final s in _sessions.toList()) {
+      s.sendPing(payload: payload);
+    }
+  }
+
   /// The `ws://host:port` base URL. Path is unused (any path works).
   Uri get uri => Uri(
         scheme: 'ws',
@@ -187,6 +205,7 @@ class _Session {
           if (msg['payload'] != null) 'payload': msg['payload'],
         });
       case 'pong':
+        _server._receivedPongCount++;
         break;
       case 'subscribe':
         if (!_initialised) {
@@ -228,6 +247,7 @@ class _Session {
       _close(4400, 'subscribe missing payload');
       return;
     }
+    _server.onSubscribe?.call(id, payload);
     final opName = payload['operationName'];
     final handler = opName is String ? _server._operations[opName] : null;
     if (handler == null) {
@@ -272,6 +292,10 @@ class _Session {
         _subs.remove(id);
       },
     );
+  }
+
+  void sendPing({Map<String, Object?>? payload}) {
+    _send({'type': 'ping', if (payload != null) 'payload': payload});
   }
 
   void _send(Map<String, Object?> msg) {
