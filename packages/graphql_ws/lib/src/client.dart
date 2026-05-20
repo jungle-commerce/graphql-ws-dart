@@ -91,6 +91,18 @@ abstract interface class Client implements Disposable {
   /// Useful when the WebSocket has frozen and stopped emitting events
   /// (e.g. iOS Safari, see https://github.com/enisdenjo/graphql-ws/discussions/290).
   void terminate();
+
+  /// Sends a `Ping` message over the active connection, optionally carrying
+  /// [payload].
+  ///
+  /// A no-op when there is no live connection. A compliant server replies
+  /// with a `Pong`, surfacing as a [PongEvent] with `received: true` — which
+  /// makes this a useful on-demand liveness probe for detecting a frozen
+  /// ("zombie") socket, e.g. after an app returns from the background.
+  ///
+  /// Distinct from the automatic [keepAlive] pings: this fires immediately,
+  /// once, regardless of the keep-alive interval.
+  void ping([Map<String, Object?>? payload]);
 }
 
 /// Creates a disposable GraphQL over WebSocket client.
@@ -363,6 +375,17 @@ class _GraphqlWsClient implements Client {
     // emits ClosedEvent(4499, "Terminated"), tears down the attempt, and
     // (best-effort) closes the underlying adapter even if it has frozen.
     attempt.failureHandler?.call(const TerminatedCloseEvent());
+  }
+
+  @override
+  void ping([Map<String, Object?>? payload]) {
+    final adapter = _activeAdapter;
+    if (adapter == null || !adapter.isOpen) return;
+    adapter.sendText(stringifyMessage(
+      PingMessage(payload: payload),
+      replacer: jsonMessageReplacer,
+    ));
+    _emit(PingEvent(received: false, payload: payload));
   }
 
   // ------------------------------------------------------------------

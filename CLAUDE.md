@@ -99,16 +99,16 @@ Two layers:
 
 **Unit suite** (no real GraphQL execution; tserver mocks frames):
 - `test/common_test.dart` — 73 cases, full port of upstream `common.test.ts` (every `it.each` row).
-- `test/client_test.dart` — 54 cases across top-level + 7 `group`s (ping/pong, query op, subscription op, concurrency, lazy, reconnecting, events, stream, robustness). Substantially mirrors `client.test.ts`.
+- `test/client_test.dart` — 58 cases across top-level + 7 `group`s (ping/pong, query op, subscription op, concurrency, lazy, reconnecting, events, stream, robustness). Substantially mirrors `client.test.ts`. The `ping/pong` group also covers the Dart-only `Client.ping()` on-demand method (no JS counterpart).
 - `test/smoke_test.dart` — 4 wiring sanity checks.
 
 One case is intentionally `skip:`ped with a tracking comment (listener throwing inside `ConnectedEvent` — semantics differ slightly).
 
 **Integration suite** (real shelf-backed server, tagged `integration`):
-- `test/integration_test.dart` — 17 cases against `graphql_ws_test_server` exercising the default `DartIoWebSocketAdapter` end-to-end: query/Complete, subscription stream, server-emitted error, keep-alive ping/pong, connectionParams round-trip, retry-after-server-disconnect, concurrent subscriptions sharing one socket, lazy connect/disconnect lifecycle, connectionAckWaitTimeout (4504), fatal close code (no retry), non-lazy + onNonLazyError, retry exhaustion, lazyCloseTimeout debounce, shouldRetry override, server-ping → client-pong, disablePong, generateID.
+- `test/integration_test.dart` — 18 cases against `graphql_ws_test_server` exercising the default `DartIoWebSocketAdapter` end-to-end: query/Complete, subscription stream, server-emitted error, keep-alive ping/pong, connectionParams round-trip, retry-after-server-disconnect, concurrent subscriptions sharing one socket, lazy connect/disconnect lifecycle, connectionAckWaitTimeout (4504), fatal close code (no retry), non-lazy + onNonLazyError, retry exhaustion, lazyCloseTimeout debounce, shouldRetry override, server-ping → client-pong, disablePong, generateID, on-demand `ping()`.
 - Mirror suite in `packages/graphql_ws_web_socket_channel_connector/test/integration_test.dart` — 8 cases against the same server but with `webSocketChannelConnector`. Focused on adapter-shape behaviors (Next/Complete, cancellation, clean close, error frames, fatal close, retry exhaustion, connectionParams).
 
-Total in `graphql_ws`: 131 unit + 17 integration = 148 + 1 skipped. Plus 8 integration in `graphql_ws_web_socket_channel_connector`. Grand total: 156 active.
+Total in `graphql_ws`: 135 unit + 18 integration = 153 + 1 skipped. Plus 8 integration in `graphql_ws_web_socket_channel_connector`. Grand total: 161 active.
 
 ### `packages/graphql_ws_web_socket_channel_connector` — web/cross-platform adapter
 

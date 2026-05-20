@@ -516,6 +516,38 @@ void main() {
         reason: 'disablePong must suppress the automatic pong reply');
   });
 
+  test('ping(): on-demand ping draws a Pong back from the server', () async {
+    server.register('long', (payload) => _neverEnding());
+
+    final client = buildClient();
+    addTearDown(client.dispose);
+
+    final connected = Completer<void>();
+    client.on<ConnectedEvent>((_) {
+      if (!connected.isCompleted) connected.complete();
+    });
+    final pongReceived = Completer<void>();
+    client.on<PongEvent>((e) {
+      if (e.received && !pongReceived.isCompleted) pongReceived.complete();
+    });
+
+    final sub = client
+        .stream<Map<String, Object?>, Object?>(
+          const SubscribePayload(
+            query: 'subscription { tick }',
+            operationName: 'long',
+          ),
+        )
+        .listen((_) {});
+    addTearDown(sub.cancel);
+
+    await connected.future.timeout(const Duration(seconds: 2));
+    expect(server.receivedPongCount, equals(0));
+
+    client.ping();
+    await pongReceived.future.timeout(const Duration(seconds: 2));
+  });
+
   test('generateID: custom id generator is used for subscription frames',
       () async {
     server.register('hello', (payload) {

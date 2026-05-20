@@ -473,6 +473,54 @@ void main() {
       final ping = await tc.waitForMessage(timeout: _fast);
       expect(ping, isA<PingMessage>());
     });
+
+    test('ping() sends a Ping message to the server on demand', () async {
+      final client = createClient(
+        url: () => server.uri,
+        lazy: false,
+        retryAttempts: 0,
+        onNonLazyError: (_) {},
+      );
+      final tc = await _ack(server);
+      client.ping();
+      final msg = await tc.waitForMessage(timeout: _fast);
+      expect(msg, isA<PingMessage>());
+    });
+
+    test('ping(payload) forwards the payload to the server', () async {
+      final client = createClient(
+        url: () => server.uri,
+        lazy: false,
+        retryAttempts: 0,
+        onNonLazyError: (_) {},
+      );
+      final tc = await _ack(server);
+      client.ping({'probe': 'liveness'});
+      final msg = await tc.waitForMessage(timeout: _fast);
+      expect(msg, isA<PingMessage>());
+      expect((msg as PingMessage).payload, equals({'probe': 'liveness'}));
+    });
+
+    test('ping() emits a PingEvent with received: false', () async {
+      final client = createClient(
+        url: () => server.uri,
+        lazy: false,
+        retryAttempts: 0,
+        onNonLazyError: (_) {},
+      );
+      await _ack(server);
+      final pings = <PingEvent>[];
+      client.on<PingEvent>(pings.add);
+      client.ping();
+      expect(pings, hasLength(1));
+      expect(pings.single.received, isFalse);
+    });
+
+    test('ping() is a no-op when there is no live connection', () async {
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
+      // Lazy client, never subscribed — no socket exists.
+      expect(client.ping, returnsNormally);
+    });
   });
 
   // ==========================================================================
