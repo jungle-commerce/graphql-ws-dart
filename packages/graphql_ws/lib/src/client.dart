@@ -9,6 +9,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'common.dart';
+import 'default_connector.dart';
 import 'events.dart';
 import 'utils.dart';
 import 'websocket_adapter.dart';

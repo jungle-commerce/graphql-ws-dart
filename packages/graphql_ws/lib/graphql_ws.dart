@@ -41,6 +41,7 @@ export 'src/common.dart'
         parseMessage,
         stringifyMessage,
         validateMessage;
+export 'src/default_connector.dart';
 export 'src/events.dart'
     show
         ClientEvent,
@@ -60,9 +61,4 @@ export 'src/utils.dart'
         isFatalInternalCloseCode,
         limitCloseReason;
 export 'src/websocket_adapter.dart'
-    show
-        DartIoWebSocketAdapter,
-        WebSocketAdapter,
-        WebSocketCloseEvent,
-        WebSocketConnector,
-        defaultWebSocketConnector;
+    show WebSocketAdapter, WebSocketCloseEvent, WebSocketConnector;

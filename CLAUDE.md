@@ -62,11 +62,14 @@ Layering (top of `lib/`):
 ```
 graphql_ws.dart           public re-exports
   └── src/
-      ├── common.dart           protocol types, validation, parse/stringify
-      ├── events.dart           sealed ClientEvent hierarchy
-      ├── utils.dart            UUID v4, LikeCloseEvent, isFatalInternalCloseCode
-      ├── websocket_adapter.dart  WebSocketAdapter interface + dart:io default
-      └── client.dart           Client + createClient state machine
+      ├── common.dart                  protocol types, validation, parse/stringify
+      ├── events.dart                  sealed ClientEvent hierarchy
+      ├── utils.dart                   UUID v4, LikeCloseEvent, isFatalInternalCloseCode
+      ├── websocket_adapter.dart       WebSocketAdapter interface (platform-neutral, no dart:io)
+      ├── default_connector.dart       conditional export: io connector on native, stub on web
+      ├── default_connector_io.dart    dart:io default connector + DartIoWebSocketAdapter
+      ├── default_connector_stub.dart  web fallback — defaultWebSocketConnector throws
+      └── client.dart                  Client + createClient state machine
 ```
 
 `graphql_ws.dart` re-exports the user-facing API; internal helpers (e.g. `_GraphqlWsClient`, `_ConnectionAttempt`) stay private.
@@ -84,9 +87,16 @@ This is where almost all the subtlety lives. The shape mirrors the JS reference 
   Plus a `handled` flag so terminate() + adapter.done don't double-fire teardown, and a `failureHandler` closure exposed so `terminate()` can synthesise a `TerminatedCloseEvent` without duplicating onSocketFailure's logic.
 - **Retry classification** in `_shouldRetryConnectOrThrow` — the fatal-codes set is taken from the JS impl; preserve it verbatim. Retries reset to zero only when a connection is *acknowledged*, not merely established.
 
-#### `WebSocketAdapter` ([packages/graphql_ws/lib/src/websocket_adapter.dart](packages/graphql_ws/lib/src/websocket_adapter.dart))
+#### `WebSocketAdapter` & the default connector
 
-Transport injection point. `DartIoWebSocketAdapter` wraps `dart:io.WebSocket` and **tracks locally-initiated close codes** — `dart:io` exposes `closeCode` reflecting only the *remote* side, so without this tracking, tests asserting `code == 4005` (locally initiated) would see 1005 instead. Don't remove the `_localCloseCode`/`_localCloseInitiated` plumbing.
+`websocket_adapter.dart` is the **platform-neutral** transport injection point — it holds the `WebSocketAdapter` interface, `WebSocketConnector` typedef, and `WebSocketCloseEvent`, and imports no `dart:io`.
+
+The default connector is split so `dart:io` never reaches a web compile:
+- `default_connector.dart` — conditional export: `export 'default_connector_stub.dart' if (dart.library.io) 'default_connector_io.dart';`. Both `client.dart` (import) and `graphql_ws.dart` (export) go through this one file, so the conditional clause lives in exactly one place.
+- `default_connector_io.dart` — the `dart:io`-backed `defaultWebSocketConnector` + `DartIoWebSocketAdapter`. The adapter **tracks locally-initiated close codes** — `dart:io` exposes `closeCode` reflecting only the *remote* side, so without this tracking, tests asserting `code == 4005` (locally initiated) would see 1005 instead. Don't remove the `_localCloseCode`/`_localCloseInitiated` plumbing.
+- `default_connector_stub.dart` — web fallback. `defaultWebSocketConnector` throws `UnsupportedError` pointing at `graphql_ws_web_socket_channel_connector`. The core ships no browser socket on purpose (zero-dep). The throw is a non-`CloseEvent` error, so the default retry classifier surfaces it immediately rather than retrying.
+
+`DartIoWebSocketAdapter` stays public on native; on web it's simply absent (correct — it's a `dart:io` type).
 
 #### Events ([packages/graphql_ws/lib/src/events.dart](packages/graphql_ws/lib/src/events.dart))
 
