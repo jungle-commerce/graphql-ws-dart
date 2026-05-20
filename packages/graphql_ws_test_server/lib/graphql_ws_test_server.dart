@@ -36,7 +36,11 @@ typedef OperationHandler = Stream<Map<String, Object?>> Function(
 /// Return `null` to accept the connection (server responds with
 /// `connection_ack`). Return a close code (e.g. `4403`) to reject before
 /// acking — the server will close with that code instead.
-typedef ConnectionInitHandler = int? Function(Map<String, Object?>? payload);
+///
+/// May be async — useful for simulating a slow ack to exercise the client's
+/// `connectionAckWaitTimeout`.
+typedef ConnectionInitHandler = FutureOr<int?> Function(
+    Map<String, Object?>? payload);
 
 /// A running test server. Use [start] to construct; call [dispose] to stop.
 class GraphqlWsTestServer {
@@ -170,16 +174,13 @@ class _Session {
           _close(4429, 'too many initialisation requests');
           return;
         }
+        // Mark before the async gap so a second connection_init arriving
+        // while the handler awaits is still rejected.
+        _initialised = true;
         final rawPayload = msg['payload'];
         final payload =
             rawPayload is Map<String, Object?> ? rawPayload : null;
-        final rejectCode = _server.onConnectionInit?.call(payload);
-        if (rejectCode != null) {
-          _close(rejectCode, 'rejected by onConnectionInit');
-          return;
-        }
-        _initialised = true;
-        _send({'type': 'connection_ack'});
+        unawaited(_processInit(payload));
       case 'ping':
         _send({
           'type': 'pong',
@@ -201,6 +202,15 @@ class _Session {
       default:
         _close(4400, 'unknown message type: $type');
     }
+  }
+
+  Future<void> _processInit(Map<String, Object?>? payload) async {
+    final rejectCode = await _server.onConnectionInit?.call(payload);
+    if (rejectCode != null) {
+      _close(rejectCode, 'rejected by onConnectionInit');
+      return;
+    }
+    _send({'type': 'connection_ack'});
   }
 
   void _handleSubscribe(Map<String, Object?> msg) {

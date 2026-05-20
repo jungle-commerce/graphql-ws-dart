@@ -284,6 +284,111 @@ void main() {
     await _eventually(() => server.connectedClients == 0,
         label: 'socket closes after last unsubscribe');
   });
+
+  test(
+      'connectionAckWaitTimeout: client closes 4504 when server acks too late',
+      () async {
+    // Server delays ack by 300 ms; client gives up after 50 ms.
+    server.onConnectionInit = (payload) async {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      return null;
+    };
+
+    final client = createClient(
+      url: () => server.uri,
+      retryAttempts: 0,
+      connectionAckWaitTimeout: const Duration(milliseconds: 50),
+    );
+    addTearDown(client.dispose);
+
+    Object? captured;
+    try {
+      await client
+          .stream<Map<String, Object?>, Object?>(
+            const SubscribePayload(query: 'query { x }', operationName: 'x'),
+          )
+          .toList();
+    } catch (e) {
+      captured = e;
+    }
+
+    expect(captured, isA<LikeCloseEvent>());
+    expect((captured! as LikeCloseEvent).code, equals(4504));
+  });
+
+  test('fatal close code: server sends 4400, client does not retry', () async {
+    // 4400 is hardcoded fatal — client should surface immediately even with
+    // retryAttempts budget remaining.
+    server.onConnectionInit = (_) => 4400;
+
+    final connected = <ConnectedEvent>[];
+    final client = buildClient(retryAttempts: 3);
+    addTearDown(client.dispose);
+    client.on<ConnectedEvent>(connected.add);
+
+    Object? captured;
+    try {
+      await client
+          .stream<Map<String, Object?>, Object?>(
+            const SubscribePayload(query: 'query { x }', operationName: 'x'),
+          )
+          .toList();
+    } catch (e) {
+      captured = e;
+    }
+
+    expect(captured, isA<LikeCloseEvent>());
+    expect((captured! as LikeCloseEvent).code, equals(4400));
+    expect(connected, isEmpty, reason: 'must not retry a fatal close code');
+  });
+
+  test('non-lazy + onNonLazyError: error surfaces without a subscriber',
+      () async {
+    server.onConnectionInit = (_) => 4403;
+
+    final errors = <Object>[];
+    final client = createClient(
+      url: () => server.uri,
+      lazy: false,
+      retryAttempts: 0,
+      onNonLazyError: errors.add,
+    );
+    addTearDown(client.dispose);
+
+    await _eventually(() => errors.isNotEmpty, label: 'onNonLazyError fires');
+    expect(errors.first, isA<LikeCloseEvent>());
+    expect((errors.first as LikeCloseEvent).code, equals(4403));
+  });
+
+  test('retry exhaustion: non-fatal close surfaces after budget runs out',
+      () async {
+    // 4403 (forbidden) is non-fatal — the client will retry until the budget
+    // is exhausted, then surface the last error to subscribers.
+    var attempts = 0;
+    server.onConnectionInit = (_) {
+      attempts++;
+      return 4403;
+    };
+
+    final client = buildClient(retryAttempts: 2);
+    addTearDown(client.dispose);
+
+    Object? captured;
+    try {
+      await client
+          .stream<Map<String, Object?>, Object?>(
+            const SubscribePayload(query: 'query { x }', operationName: 'x'),
+          )
+          .toList();
+    } catch (e) {
+      captured = e;
+    }
+
+    // 1 initial attempt + 2 retries = 3 total.
+    expect(attempts, equals(3));
+    expect(captured, isA<LikeCloseEvent>());
+    expect((captured! as LikeCloseEvent).code, equals(4403));
+  });
 }
 
 /// A subscription stream that never emits values but never completes either.
