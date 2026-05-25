@@ -548,7 +548,7 @@ void main() {
     await pongReceived.future.timeout(const Duration(seconds: 2));
   });
 
-  test('generateID: custom id generator is used for subscription frames',
+  test('generateId: custom id generator is used for subscription frames',
       () async {
     server.register('hello', (payload) {
       return Stream.value(<String, Object?>{'data': {'hello': 'world'}});
@@ -561,7 +561,7 @@ void main() {
     final client = createClient(
       url: () => server.uri,
       retryAttempts: 0,
-      generateID: (_) => customId,
+      generateId: (_) => customId,
     );
     addTearDown(client.dispose);
 

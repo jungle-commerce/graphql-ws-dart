@@ -3,7 +3,7 @@
 ///
 /// Dart port of the JavaScript [`graphql-ws`](https://github.com/enisdenjo/graphql-ws)
 /// package. Implements the [GraphQL over WebSocket Protocol](https://github.com/graphql/graphql-over-http/blob/main/rfcs/GraphQLOverWebSocket.md)
-/// (`graphql-transport-ws` sub-protocol).
+/// (`graphql-transport-ws` sub-protocol — the only sub-protocol supported).
 library graphql_ws;
 
 export 'src/client.dart'
@@ -13,7 +13,6 @@ export 'src/client.dart'
         RetryWait,
         ShouldRetry,
         SubscriptionIdGenerator,
-        SubscriptionSink,
         createClient;
 export 'src/common.dart'
     show
@@ -24,6 +23,7 @@ export 'src/common.dart'
         Disposable,
         ErrorMessage,
         FormattedExecutionResult,
+        GraphqlSink,
         GraphQLFormattedError,
         JsonMessageReplacer,
         JsonMessageReviver,
@@ -32,11 +32,9 @@ export 'src/common.dart'
         NextMessage,
         PingMessage,
         PongMessage,
-        Sink,
         SourceLocation,
         SubscribeMessage,
         SubscribePayload,
-        deprecatedGraphqlWsProtocol,
         graphqlTransportWsProtocol,
         parseMessage,
         stringifyMessage,
@@ -53,12 +51,6 @@ export 'src/events.dart'
         OpenedEvent,
         PingEvent,
         PongEvent;
-export 'src/utils.dart'
-    show
-        LikeCloseEvent,
-        TerminatedCloseEvent,
-        generateUuidV4,
-        isFatalInternalCloseCode,
-        limitCloseReason;
+export 'src/utils.dart' show LikeCloseEvent, TerminatedCloseEvent;
 export 'src/websocket_adapter.dart'
     show WebSocketAdapter, WebSocketCloseEvent, WebSocketConnector;

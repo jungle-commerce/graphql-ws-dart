@@ -8,11 +8,15 @@ import 'dart:convert';
 
 /// The WebSocket sub-protocol used for the
 /// [GraphQL over WebSocket Protocol](https://github.com/graphql/graphql-over-http/blob/main/rfcs/GraphQLOverWebSocket.md).
+///
+/// This is the **only** sub-protocol this client offers during the WebSocket
+/// handshake. The legacy `graphql-ws` sub-protocol used by the long-deprecated
+/// [`subscriptions-transport-ws`](https://github.com/apollographql/subscriptions-transport-ws)
+/// package is intentionally not supported — servers that only speak the
+/// legacy protocol will fail the handshake with HTTP 400 / WebSocket close
+/// code `1002`. Either upgrade the server to a `graphql-transport-ws`-compliant
+/// implementation, or use a different client.
 const String graphqlTransportWsProtocol = 'graphql-transport-ws';
-
-/// The deprecated subprotocol used by
-/// [`subscriptions-transport-ws`](https://github.com/apollographql/subscriptions-transport-ws).
-const String deprecatedGraphqlWsProtocol = 'graphql-ws';
 
 /// `graphql-ws` expected and standard close codes of the
 /// [GraphQL over WebSocket Protocol](https://github.com/graphql/graphql-over-http/blob/main/rfcs/GraphQLOverWebSocket.md).
@@ -80,10 +84,13 @@ abstract interface class Disposable {
 
 /// A representation of any set of values over any amount of time.
 ///
-/// Mirrors the `Sink` interface from the JavaScript `graphql-ws` client.
-/// Note that this type is distinct from `dart:async`'s `Sink` (which uses
-/// `add`/`close`); the names here match the JS contract for parity.
-abstract interface class Sink<T> {
+/// Mirrors the `Sink` interface from the JavaScript `graphql-ws` client. The
+/// `Graphql` prefix avoids the name clash with `dart:async`'s `Sink` (which
+/// uses `add`/`close`); the method names here match the JS contract.
+///
+/// Most Dart users should prefer [Client.stream] instead, which adapts this
+/// onto a regular `Stream<T>`.
+abstract interface class GraphqlSink<T> {
   /// Next value arriving.
   void next(T value);
 

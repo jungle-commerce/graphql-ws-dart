@@ -14,13 +14,6 @@ import 'events.dart';
 import 'utils.dart';
 import 'websocket_adapter.dart';
 
-/// The shape required to receive incoming subscription results.
-///
-/// Provides a low-level `next`/`error`/`complete` callback API. For most
-/// Dart consumers, prefer [Client.stream], which adapts these callbacks
-/// onto a regular `Stream<T>`.
-typedef SubscriptionSink<T> = Sink<T>;
-
 /// Signature of a listener returned by [Client.on].
 typedef ClientEventListener<E extends ClientEvent> = void Function(E event);
 
@@ -71,7 +64,7 @@ abstract interface class Client implements Disposable {
   /// dispose will, if appropriate, send a `Complete` message to the server.
   void Function() subscribe<TData extends Object?, TExtensions extends Object?>(
     SubscribePayload payload,
-    Sink<FormattedExecutionResult<TData, TExtensions>> sink,
+    GraphqlSink<FormattedExecutionResult<TData, TExtensions>> sink,
   );
 
   /// Subscribes through the WebSocket and emits results as a `Stream`.
@@ -136,7 +129,7 @@ abstract interface class Client implements Disposable {
 ///   exponential backoff (`2^retries` seconds + 0.3-3s jitter).
 /// - [shouldRetry]: Predicate to override which non-CloseEvent errors are
 ///   retryable. Defaults to: only retry close-event-like errors.
-/// - [generateID]: Subscription id generator. Defaults to UUID v4.
+/// - [generateId]: Subscription id generator. Defaults to UUID v4.
 /// - [jsonMessageReviver]: Reviver passed to `jsonDecode` for inbound frames.
 /// - [connector]: Custom WebSocket transport. Defaults to
 ///   [defaultWebSocketConnector] (`dart:io.WebSocket`); supply a custom
@@ -155,11 +148,10 @@ Client createClient({
   int retryAttempts = 5,
   RetryWait? retryWait,
   ShouldRetry? shouldRetry,
-  SubscriptionIdGenerator? generateID,
+  SubscriptionIdGenerator? generateId,
   JsonMessageReviver? jsonMessageReviver,
   JsonMessageReplacer? jsonMessageReplacer,
   WebSocketConnector? connector,
-  Map<Type, ClientEventListener<ClientEvent>>? on,
 }) {
   if (!lazy && onNonLazyError == null) {
     throw ArgumentError(
@@ -180,11 +172,10 @@ Client createClient({
     retryAttempts: retryAttempts,
     retryWait: retryWait ?? _defaultRetryWait,
     shouldRetry: shouldRetry ?? _defaultShouldRetry,
-    generateID: generateID ?? ((_) => generateUuidV4()),
+    generateId: generateId ?? ((_) => generateUuidV4()),
     jsonMessageReviver: jsonMessageReviver,
     jsonMessageReplacer: jsonMessageReplacer,
     connector: connector ?? defaultWebSocketConnector,
-    initialListeners: on,
   );
 }
 
@@ -213,17 +204,11 @@ class _GraphqlWsClient implements Client {
     required this.retryAttempts,
     required this.retryWait,
     required this.shouldRetry,
-    required this.generateID,
+    required this.generateId,
     required this.jsonMessageReviver,
     required this.jsonMessageReplacer,
     required this.connector,
-    required Map<Type, ClientEventListener<ClientEvent>>? initialListeners,
   }) : _url = url {
-    if (initialListeners != null) {
-      for (final entry in initialListeners.entries) {
-        _initialListeners.add(entry.value);
-      }
-    }
     if (!lazy) {
       _startNonLazyConnect();
     }
@@ -244,7 +229,7 @@ class _GraphqlWsClient implements Client {
   final int retryAttempts;
   final RetryWait retryWait;
   final ShouldRetry shouldRetry;
-  final SubscriptionIdGenerator generateID;
+  final SubscriptionIdGenerator generateId;
   final JsonMessageReviver? jsonMessageReviver;
   final JsonMessageReplacer? jsonMessageReplacer;
   final WebSocketConnector connector;
@@ -253,7 +238,6 @@ class _GraphqlWsClient implements Client {
   // Listener registry.
   // ------------------------------------------------------------------
 
-  final List<ClientEventListener<ClientEvent>> _initialListeners = [];
   final List<ClientEventListener<ClientEvent>> _listeners = [];
   final Map<String, void Function(Message message)> _messageById = {};
 
@@ -290,9 +274,9 @@ class _GraphqlWsClient implements Client {
   void Function()
       subscribe<TData extends Object?, TExtensions extends Object?>(
     SubscribePayload payload,
-    Sink<FormattedExecutionResult<TData, TExtensions>> sink,
+    GraphqlSink<FormattedExecutionResult<TData, TExtensions>> sink,
   ) {
-    final id = generateID(payload);
+    final id = generateId(payload);
     final state = _SubscriptionState();
 
     // Initial releaser: handles the "completed before connect" case.
@@ -395,18 +379,11 @@ class _GraphqlWsClient implements Client {
 
   void _emit(ClientEvent event) {
     // Snapshot listeners so removals during emit don't shift indices.
-    for (final l in List.of(_initialListeners)) {
-      try {
-        l(event);
-      } on Object {
-        // Listener errors are not propagated to peers.
-      }
-    }
     for (final l in List.of(_listeners)) {
       try {
         l(event);
       } on Object {
-        // ditto
+        // Listener errors are not propagated to peers.
       }
     }
     if (event is MessageEvent) {
@@ -793,7 +770,7 @@ class _GraphqlWsClient implements Client {
       _runSubscription<TData extends Object?, TExtensions extends Object?>(
     String id,
     SubscribePayload payload,
-    Sink<FormattedExecutionResult<TData, TExtensions>> sink,
+    GraphqlSink<FormattedExecutionResult<TData, TExtensions>> sink,
     _SubscriptionState state,
   ) async {
     _locks++;
@@ -934,7 +911,7 @@ class _ConnectionAttempt {
   }
 }
 
-class _ControllerSink<T> implements Sink<T> {
+class _ControllerSink<T> implements GraphqlSink<T> {
   _ControllerSink(this._controller);
 
   final StreamController<T> _controller;

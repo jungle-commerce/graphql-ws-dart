@@ -58,7 +58,7 @@ class SpyClient implements Client {
   @override
   void Function() subscribe<TData extends Object?, TExtensions extends Object?>(
     SubscribePayload payload,
-    Sink<FormattedExecutionResult<TData, TExtensions>> sink,
+    GraphqlSink<FormattedExecutionResult<TData, TExtensions>> sink,
   ) =>
       throw UnimplementedError('SpyClient does not support subscribe');
 

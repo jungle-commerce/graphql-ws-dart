@@ -54,17 +54,13 @@ void main() {
   test('should receive optional connection ack payload in event handler',
       () async {
     final connected = Deferred<Map<String, Object?>?>();
-    createClient(
+    final client = createClient(
       url: () => server.uri,
       retryAttempts: 0,
       lazy: false,
       onNonLazyError: (_) {},
-      on: {
-        ConnectedEvent: ((ClientEvent e) {
-          if (e is ConnectedEvent) connected.resolve(e.payload);
-        }),
-      },
     );
+    client.on<ConnectedEvent>((e) => connected.resolve(e.payload));
 
     await _ack(server, payload: {'itsa': 'me'});
     expect(await connected.future, equals({'itsa': 'me'}));
@@ -78,15 +74,11 @@ void main() {
       url: () => server.uri,
       retryAttempts: 0,
       onNonLazyError: (_) {},
-      on: {
-        ClosedEvent: ((ClientEvent e) {
-          if (e is ClosedEvent) closed.resolve(e);
-        }),
-        ConnectedEvent: ((ClientEvent _) {
-          throw someErr;
-        }),
-      },
     );
+    client.on<ClosedEvent>((e) => closed.resolve(e));
+    client.on<ConnectedEvent>((_) {
+      throw someErr;
+    });
 
     final sub = TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
       client,
@@ -159,12 +151,10 @@ void main() {
       retryAttempts: 0,
       onNonLazyError: (_) {},
       connectionParams: () => throw someErr,
-      on: {
-        ClosedEvent: ((ClientEvent e) {
-          if (e is ClosedEvent && !closed.isCompleted) closed.resolve(e);
-        }),
-      },
     );
+    client.on<ClosedEvent>((e) {
+      if (!closed.isCompleted) closed.resolve(e);
+    });
 
     final sub = TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
       client,
@@ -197,12 +187,10 @@ void main() {
       retryAttempts: 0,
       onNonLazyError: (_) {},
       connectionParams: () => Future<Map<String, Object?>?>.error(someErr),
-      on: {
-        ClosedEvent: ((ClientEvent e) {
-          if (e is ClosedEvent && !closed.isCompleted) closed.resolve(e);
-        }),
-      },
     );
+    client.on<ClosedEvent>((e) {
+      if (!closed.isCompleted) closed.resolve(e);
+    });
 
     final sub = TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
       client,
@@ -292,12 +280,10 @@ void main() {
       retryAttempts: 0,
       onNonLazyError: (_) {},
       connectionAckWaitTimeout: const Duration(milliseconds: 50),
-      on: {
-        ClosedEvent: ((ClientEvent e) {
-          if (e is ClosedEvent && !closed.isCompleted) closed.resolve(e);
-        }),
-      },
     );
+    client.on<ClosedEvent>((e) {
+      if (!closed.isCompleted) closed.resolve(e);
+    });
     final tc = await server.waitForClient(timeout: _fast);
     await tc.waitForMessageOfType(MessageType.connectionInit, timeout: _fast);
     // Don't ack — wait for the client to time out.
@@ -314,12 +300,10 @@ void main() {
       lazy: false,
       retryAttempts: 0,
       onNonLazyError: (_) {},
-      on: {
-        ClosedEvent: ((ClientEvent e) {
-          if (e is ClosedEvent && !closed.isCompleted) closed.resolve(e);
-        }),
-      },
     );
+    client.on<ClosedEvent>((e) {
+      if (!closed.isCompleted) closed.resolve(e);
+    });
 
     final tc = await server.waitForClient(timeout: _fast);
     await tc.waitForMessageOfType(MessageType.connectionInit, timeout: _fast);
@@ -361,12 +345,10 @@ void main() {
       lazy: false,
       onNonLazyError: (_) {},
       connectionParams: () => throw StateError(longMsg),
-      on: {
-        ClosedEvent: ((ClientEvent e) {
-          if (e is ClosedEvent && !closed.isCompleted) closed.resolve(e);
-        }),
-      },
     );
+    client.on<ClosedEvent>((e) {
+      if (!closed.isCompleted) closed.resolve(e);
+    });
     await server.waitForClient(timeout: _fast);
     final ev = await closed.future.timeout(_fast);
     expect(ev.code, equals(CloseCode.internalClientError.code));
@@ -381,12 +363,10 @@ void main() {
       lazy: false,
       retryAttempts: 0,
       onNonLazyError: (_) {},
-      on: {
-        ClosedEvent: ((ClientEvent e) {
-          if (e is ClosedEvent && !closed.isCompleted) closed.resolve(e);
-        }),
-      },
     );
+    client.on<ClosedEvent>((e) {
+      if (!closed.isCompleted) closed.resolve(e);
+    });
     await _ack(server);
     client.terminate();
     final ev = await closed.future.timeout(_fast);
@@ -658,13 +638,13 @@ void main() {
       await client.dispose();
     });
 
-    test('should use the provided generateID', () async {
+    test('should use the provided generateId', () async {
       var calls = 0;
       SubscribePayload? lastPayload;
       final client = createClient(
         url: () => server.uri,
         retryAttempts: 0,
-        generateID: (p) {
+        generateId: (p) {
           calls++;
           lastPayload = p;
           return 'custom-id-$calls';
@@ -787,12 +767,8 @@ void main() {
         lazy: false,
         retryAttempts: 0,
         onNonLazyError: (_) {},
-        on: {
-          ConnectedEvent: ((ClientEvent e) {
-            if (e is ConnectedEvent) connected.resolve();
-          }),
-        },
       );
+      client.on<ConnectedEvent>((e) => connected.resolve());
       final tc = await _ack(server);
       await connected.future.timeout(_fast);
       await client.dispose();
@@ -1057,41 +1033,33 @@ void main() {
     test('should allow retrying non-CloseEvent connection problems', () async {
       var connectingCount = 0;
       final connectingTwice = Deferred<void>();
-      createClient(
+      final client = createClient(
         url: () => Uri.parse('ws://127.0.0.1:1'),
         lazy: false,
         retryAttempts: 1,
         retryWait: (_) => Future.value(),
         onNonLazyError: (_) {},
         shouldRetry: (_) => true,
-        on: {
-          ConnectingEvent: ((ClientEvent e) {
-            if (e is ConnectingEvent) {
-              connectingCount++;
-              if (connectingCount == 2 && !connectingTwice.isCompleted) {
-                connectingTwice.resolve();
-              }
-            }
-          }),
-        },
       );
+      client.on<ConnectingEvent>((e) {
+        connectingCount++;
+        if (connectingCount == 2 && !connectingTwice.isCompleted) {
+          connectingTwice.resolve();
+        }
+      });
       await connectingTwice.future.timeout(_fast);
     });
 
     test('non-lazy: keeps lock so retries proceed', () async {
       var attempts = 0;
-      createClient(
+      final client = createClient(
         url: () => server.uri,
         lazy: false,
         retryAttempts: 2,
         retryWait: (_) => Future.value(),
         onNonLazyError: (_) {},
-        on: {
-          ConnectingEvent: ((ClientEvent e) {
-            if (e is ConnectingEvent) attempts++;
-          }),
-        },
       );
+      client.on<ConnectingEvent>((e) => attempts++);
       final tc1 = await server.waitForClient(timeout: _fast);
       await tc1.close();
       final tc2 = await server.waitForClient(timeout: _fast);
@@ -1190,12 +1158,10 @@ void main() {
         lazy: false,
         retryAttempts: 0,
         onNonLazyError: (_) {},
-        on: {
-          ClosedEvent: ((ClientEvent e) {
-            if (e is ClosedEvent && !closed.isCompleted) closed.resolve(e);
-          }),
-        },
       );
+      client.on<ClosedEvent>((e) {
+        if (!closed.isCompleted) closed.resolve(e);
+      });
       await _ack(server);
       await client.dispose();
       await closed.future.timeout(_fast);

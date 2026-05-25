@@ -50,12 +50,8 @@ void main() {
       url: () => server.uri,
       lazy: false,
       onNonLazyError: (_) {},
-      on: {
-        ConnectedEvent: ((ClientEvent event) {
-          if (event is ConnectedEvent) connected.resolve();
-        }),
-      },
     );
+    client.on<ConnectedEvent>((event) => connected.resolve());
 
     final tclient = await server.waitForClient();
     final init = await tclient.waitForMessage();

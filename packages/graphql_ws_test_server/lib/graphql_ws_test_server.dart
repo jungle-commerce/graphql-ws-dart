@@ -90,7 +90,7 @@ class GraphqlWsTestServer {
 
   /// Invoked when a `subscribe` message arrives, before the handler runs.
   /// Receives the subscription id and the raw payload. Useful for asserting
-  /// that the client sent a specific id (e.g. from a custom [generateID]).
+  /// that the client sent a specific id (e.g. from a custom [generateId]).
   void Function(String id, Map<String, Object?> payload)? onSubscribe;
 
   /// Number of `pong` messages received from clients since the server started.

@@ -35,6 +35,9 @@ graphql-ws-dart/
 - **No `dynamic`.** Use `Object?` everywhere a JSON-ish value crosses a boundary. The analyzer is configured with `strict-casts`/`strict-inference`/`strict-raw-types`, so `dynamic` will surface as a warning. Same rule for every package in this repo.
 - **1:1 with the JS client for protocol semantics.** When in doubt about behavior (retry classification, lazy-close debouncing, ack-timeout, terminate, etc.), read `~/Projects/graphql-ws/src/client.ts` and mirror it. Tests in `~/Projects/graphql-ws/tests/client.test.ts` are the contract.
 - **Don't add a `connector` default to `graphql_ws` that imports `dart:html` or `package:web_socket_channel`.** The default uses `dart:io.WebSocket` and that is intentional. Flutter-web users add the `graphql_ws_web_socket_channel_connector` companion package.
+- **`graphql-transport-ws` is the only sub-protocol supported.** Do NOT re-introduce a `deprecatedGraphqlWsProtocol` constant or add fallback logic for the legacy `graphql-ws` sub-protocol (used by `subscriptions-transport-ws`). Servers that only speak the legacy protocol fail the handshake; that's intentional and documented.
+- **API naming follows Dart conventions, not JS.** When porting test cases or helpers from the JS reference, translate names: `generateID` → `generateId`, `Sink` → `GraphqlSink` (avoids `dart:async.Sink` clash). The `on: { EventType: ... }` Map constructor parameter from the JS client is **not** ported — Dart users register listeners via `client.on<EventType>(...)` after construction.
+- **Internal helpers stay internal.** `generateUuidV4`, `isFatalInternalCloseCode`, `limitCloseReason` are not exported from `lib/graphql_ws.dart`. Use them inside `lib/src/` only; do not re-export.
 
 ## Common commands
 
@@ -64,7 +67,7 @@ graphql_ws.dart           public re-exports
   └── src/
       ├── common.dart                  protocol types, validation, parse/stringify
       ├── events.dart                  sealed ClientEvent hierarchy
-      ├── utils.dart                   UUID v4, LikeCloseEvent, isFatalInternalCloseCode
+      ├── utils.dart                   UUID v4, LikeCloseEvent, isFatalInternalCloseCode (internal helpers; not re-exported)
       ├── websocket_adapter.dart       WebSocketAdapter interface (platform-neutral, no dart:io)
       ├── default_connector.dart       conditional export: io connector on native, stub on web
       ├── default_connector_io.dart    dart:io default connector + DartIoWebSocketAdapter
@@ -120,7 +123,7 @@ Two layers:
 One case is intentionally `skip:`ped with a tracking comment (listener throwing inside `ConnectedEvent` — semantics differ slightly).
 
 **Integration suite** (real shelf-backed server, tagged `integration`):
-- `test/integration_test.dart` — 18 cases against `graphql_ws_test_server` exercising the default `DartIoWebSocketAdapter` end-to-end: query/Complete, subscription stream, server-emitted error, keep-alive ping/pong, connectionParams round-trip, retry-after-server-disconnect, concurrent subscriptions sharing one socket, lazy connect/disconnect lifecycle, connectionAckWaitTimeout (4504), fatal close code (no retry), non-lazy + onNonLazyError, retry exhaustion, lazyCloseTimeout debounce, shouldRetry override, server-ping → client-pong, disablePong, generateID, on-demand `ping()`.
+- `test/integration_test.dart` — 18 cases against `graphql_ws_test_server` exercising the default `DartIoWebSocketAdapter` end-to-end: query/Complete, subscription stream, server-emitted error, keep-alive ping/pong, connectionParams round-trip, retry-after-server-disconnect, concurrent subscriptions sharing one socket, lazy connect/disconnect lifecycle, connectionAckWaitTimeout (4504), fatal close code (no retry), non-lazy + onNonLazyError, retry exhaustion, lazyCloseTimeout debounce, shouldRetry override, server-ping → client-pong, disablePong, generateId, on-demand `ping()`.
 - Mirror suite in `packages/graphql_ws_web_socket_channel_connector/test/integration_test.dart` — 8 cases against the same server but with `webSocketChannelConnector`. Focused on adapter-shape behaviors (Next/Complete, cancellation, clean close, error frames, fatal close, retry exhaustion, connectionParams).
 
 Total in `graphql_ws`: 135 unit + 18 integration = 153 + 1 skipped. Plus 8 integration in `graphql_ws_web_socket_channel_connector` and 21 in `graphql_ws_flutter` (4 retry-wait + 12 manager + 2 integration + 3 widget). Grand total: 182 active.

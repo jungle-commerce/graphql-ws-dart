@@ -4,6 +4,8 @@ Coherent, zero-dependency, lazy, simple GraphQL over WebSocket Protocol complian
 
 A faithful port of the JavaScript [`graphql-ws`](https://github.com/enisdenjo/graphql-ws) client. Implements the [GraphQL over WebSocket Protocol](https://github.com/graphql/graphql-over-http/blob/main/rfcs/GraphQLOverWebSocket.md) (`graphql-transport-ws` sub-protocol).
 
+> **Only `graphql-transport-ws` is supported.** The legacy `graphql-ws` sub-protocol used by the long-deprecated [`subscriptions-transport-ws`](https://github.com/apollographql/subscriptions-transport-ws) package is intentionally rejected — servers that only speak the legacy protocol will fail the handshake. Either upgrade the server or use a different client.
+
 - **Zero external dependencies.**
 - **135 unit + 18 integration tests** covering protocol validation, lifecycle, retries, lazy/keepalive, ping/pong, terminate, streaming, plus end-to-end against a real `shelf`-backed graphql-transport-ws server.
 - Native transport via `dart:io.WebSocket`; Flutter web + custom transports via a small adapter.
@@ -74,7 +76,7 @@ await for (final r in results) {
 }
 ```
 
-**`subscribe(payload, sink)` — 1:1 with the JS client.** Takes a `Sink<T>` (the package's own three-method interface: `next` / `error` / `complete`). Returns a dispose callback.
+**`subscribe(payload, sink)` — 1:1 with the JS client.** Takes a `GraphqlSink<T>` (the package's own three-method interface: `next` / `error` / `complete`). Returns a dispose callback.
 
 ```dart
 final dispose = client.subscribe<Map<String, Object?>, Map<String, Object?>>(
@@ -115,16 +117,6 @@ final off = client.on<ClientEvent>((event) {
 
 // Narrow the listener to one event:
 client.on<ConnectedEvent>((e) => print(e.wasRetry));
-
-// Pass initial listeners at construction:
-createClient(
-  url: () => uri,
-  on: {
-    ClosedEvent: (e) {
-      if (e is ClosedEvent) report(e);
-    },
-  },
-);
 ```
 
 The full event list: `ConnectingEvent`, `OpenedEvent`, `ConnectedEvent`, `MessageEvent`, `PingEvent`, `PongEvent`, `ClosedEvent`, `ErrorEvent`.
@@ -265,7 +257,7 @@ final client = createClient(
 | `retryAttempts` | `int` | `5` | Reconnect budget for non-fatal disconnects. |
 | `retryWait` | `Future<void> Function(int)?` | randomised exponential backoff | Delay between attempts. |
 | `shouldRetry` | `bool Function(Object)?` | only retry close-event-likes | Custom retry classifier. |
-| `generateID` | `String Function(SubscribePayload)?` | UUID v4 | Subscription id source. |
+| `generateId` | `String Function(SubscribePayload)?` | UUID v4 | Subscription id source. |
 | `jsonMessageReviver` | `Object? Function(Object?, Object?)?` | — | Passed to `jsonDecode`. |
 | `connector` | `WebSocketConnector?` | `dart:io.WebSocket` | Transport injection. |
 | `on` | `Map<Type, ClientEventListener<ClientEvent>>?` | — | Initial event listeners. |

@@ -138,7 +138,7 @@ class TSubscribe<TData extends Object?, TExtensions extends Object?> {
   }
 }
 
-class _CallbackSink<T> implements Sink<T> {
+class _CallbackSink<T> implements GraphqlSink<T> {
   _CallbackSink({
     required this.onNext,
     required this.onError,
