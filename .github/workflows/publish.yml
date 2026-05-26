@@ -1,0 +1,80 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'graphql_ws-v[0-9]*'
+      - 'graphql_ws_web_socket_channel_connector-v[0-9]*'
+      - 'graphql_ws_flutter-v[0-9]*'
+
+# Each job requests id-token: write individually so the permission is scoped
+# as tightly as possible. The OIDC token is exchanged by `dart pub publish`
+# automatically — no PUB_CREDENTIALS secret needed.
+
+jobs:
+
+  # ──────────────────────────────────────────────────────────────
+  # graphql_ws   tag: graphql_ws-v*
+  # ──────────────────────────────────────────────────────────────
+  publish-graphql-ws:
+    name: Publish graphql_ws
+    if: startsWith(github.ref, 'refs/tags/graphql_ws-v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment: pub.dev
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: dart pub publish --dry-run
+        working-directory: packages/graphql_ws
+      - run: dart pub publish --force
+        working-directory: packages/graphql_ws
+
+  # ──────────────────────────────────────────────────────────────
+  # graphql_ws_web_socket_channel_connector   tag: graphql_ws_web_socket_channel_connector-v*
+  # ──────────────────────────────────────────────────────────────
+  publish-connector:
+    name: Publish graphql_ws_web_socket_channel_connector
+    if: startsWith(github.ref, 'refs/tags/graphql_ws_web_socket_channel_connector-v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment: pub.dev
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: dart pub publish --dry-run
+        working-directory: packages/graphql_ws_web_socket_channel_connector
+      - run: dart pub publish --force
+        working-directory: packages/graphql_ws_web_socket_channel_connector
+
+  # ──────────────────────────────────────────────────────────────
+  # graphql_ws_flutter   tag: graphql_ws_flutter-v*
+  # ──────────────────────────────────────────────────────────────
+  publish-flutter:
+    name: Publish graphql_ws_flutter
+    if: startsWith(github.ref, 'refs/tags/graphql_ws_flutter-v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment: pub.dev
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: dart pub publish --dry-run
+        working-directory: packages/graphql_ws_flutter
+      - run: dart pub publish --force
+        working-directory: packages/graphql_ws_flutter
