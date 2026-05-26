@@ -1,4 +1,4 @@
-## 0.1.0-dev
+## 0.1.0
 
 - Initial Dart port of [graphql-ws](https://github.com/enisdenjo/graphql-ws) (client only).
 - Implements the [GraphQL over WebSocket Protocol](https://github.com/graphql/graphql-over-http/blob/main/rfcs/GraphQLOverWebSocket.md).

@@ -2,7 +2,7 @@ name: graphql_ws_flutter
 description: >-
   Flutter integration for graphql_ws — keeps the GraphQL over WebSocket
   connection alive across app lifecycle changes and flaky mobile connectivity.
-version: 0.1.0-dev
+version: 0.1.0
 repository: https://github.com/jungle-commerce/graphql-ws-dart
 issue_tracker: https://github.com/jungle-commerce/graphql-ws-dart/issues
 
@@ -16,7 +16,7 @@ dependencies:
   connectivity_plus: ^6.0.0
   flutter:
     sdk: flutter
-  graphql_ws: ^0.1.0-dev
+  graphql_ws: ^0.1.0
 
 dev_dependencies:
   flutter_test:
