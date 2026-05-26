@@ -59,10 +59,9 @@ class TServer {
         final socket = await WebSocketTransformer.upgrade(
           req,
           protocolSelector: protocolSelector ??
-              (protocols) =>
-                  protocols.contains(graphqlTransportWsProtocol)
-                      ? graphqlTransportWsProtocol
-                      : null,
+              (protocols) => protocols.contains(graphqlTransportWsProtocol)
+                  ? graphqlTransportWsProtocol
+                  : null,
         );
         final client = TServerClient._(socket);
         server._clients.add(client);
@@ -168,8 +167,7 @@ class TServerClient {
 
   void send(String data) => _socket.add(data);
 
-  void sendMessage(Message message) =>
-      _socket.add(stringifyMessage(message));
+  void sendMessage(Message message) => _socket.add(stringifyMessage(message));
 
   Future<void> close([int? code, String? reason]) async {
     await _socket.close(code, reason);
@@ -224,8 +222,8 @@ class TServerClient {
   Future<SubscribeMessage> waitForSubscribe({
     Duration timeout = _defaultTimeout,
   }) async {
-    final m = await waitForMessageOfType(MessageType.subscribe,
-        timeout: timeout);
+    final m =
+        await waitForMessageOfType(MessageType.subscribe, timeout: timeout);
     return m as SubscribeMessage;
   }
 

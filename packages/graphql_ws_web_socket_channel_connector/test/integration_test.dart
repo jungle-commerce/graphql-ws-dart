@@ -240,7 +240,9 @@ void main() {
       return null;
     };
     server.register('hello', (payload) {
-      return Stream.value(<String, Object?>{'data': {'hello': 'world'}});
+      return Stream.value(<String, Object?>{
+        'data': {'hello': 'world'}
+      });
     });
 
     final client = createClient(

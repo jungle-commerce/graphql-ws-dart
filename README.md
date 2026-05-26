@@ -14,18 +14,21 @@ A monorepo housing a Dart port of [`graphql-ws`](https://github.com/enisdenjo/gr
 
 This is a [pub workspace](https://dart.dev/tools/pub/workspaces) (requires Dart 3.5+). One resolve at the root covers every package.
 
-Because `graphql_ws_flutter` depends on the Flutter SDK, the workspace is resolved with `flutter pub get` (not `dart pub get`):
+### Flutter version
+
+The repo pins Flutter via [FVM](https://fvm.app/). Install FVM and run `fvm install` once; afterwards prefix Flutter/Dart commands with `fvm`:
 
 ```sh
-flutter pub get            # resolve deps across the workspace
-dart analyze               # analyze every package
+fvm install                # install the pinned Flutter version (one-time)
+fvm flutter pub get        # resolve deps across the workspace
+fvm dart analyze           # analyze every package
 ```
 
-Tests run per-package — pure-Dart packages with `dart test`, the Flutter package with `flutter test`:
+Tests run per-package — pure-Dart packages with `fvm dart test`, the Flutter package with `fvm flutter test`:
 
 ```sh
-dart test packages/graphql_ws
-flutter test packages/graphql_ws_flutter
+fvm dart test packages/graphql_ws
+fvm flutter test packages/graphql_ws_flutter
 ```
 
 ## License

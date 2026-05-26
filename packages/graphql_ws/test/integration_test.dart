@@ -153,7 +153,9 @@ void main() {
       return null;
     };
     server.register('hello', (payload) {
-      return Stream.value(<String, Object?>{'data': {'hello': 'world'}});
+      return Stream.value(<String, Object?>{
+        'data': {'hello': 'world'}
+      });
     });
 
     final client = buildClient(
@@ -197,11 +199,11 @@ void main() {
     final got5AfterRetry = Completer<void>();
     final sub = client
         .stream<Map<String, Object?>, Object?>(
-          const SubscribePayload(
-            query: 'subscription Counter { count }',
-            operationName: 'counter',
-          ),
-        )
+      const SubscribePayload(
+        query: 'subscription Counter { count }',
+        operationName: 'counter',
+      ),
+    )
         .listen((r) {
       received.add(r.data!['count']! as int);
       if (received.length == 5 && !got5.isCompleted) got5.complete();
@@ -265,7 +267,9 @@ void main() {
   test('lazy: connects on first subscribe, disconnects after last unsubscribe',
       () async {
     server.register('hello', (payload) {
-      return Stream.value(<String, Object?>{'data': {'hello': 'world'}});
+      return Stream.value(<String, Object?>{
+        'data': {'hello': 'world'}
+      });
     });
 
     final client = buildClient();
@@ -287,8 +291,7 @@ void main() {
         label: 'socket closes after last unsubscribe');
   });
 
-  test(
-      'connectionAckWaitTimeout: client closes 4504 when server acks too late',
+  test('connectionAckWaitTimeout: client closes 4504 when server acks too late',
       () async {
     // Server delays ack by 300 ms; client gives up after 50 ms.
     server.onConnectionInit = (payload) async {
@@ -394,7 +397,9 @@ void main() {
 
   test('lazyCloseTimeout: socket stays open during debounce window', () async {
     server.register('hello', (payload) {
-      return Stream.value(<String, Object?>{'data': {'hello': 'world'}});
+      return Stream.value(<String, Object?>{
+        'data': {'hello': 'world'}
+      });
     });
 
     final client = buildClient(
@@ -551,7 +556,9 @@ void main() {
   test('generateId: custom id generator is used for subscription frames',
       () async {
     server.register('hello', (payload) {
-      return Stream.value(<String, Object?>{'data': {'hello': 'world'}});
+      return Stream.value(<String, Object?>{
+        'data': {'hello': 'world'}
+      });
     });
 
     final receivedIds = <String>[];

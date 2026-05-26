@@ -77,13 +77,15 @@ void main() {
 
     tclient.sendMessage(NextMessage(
       id: subscribe.id,
-      payload: FormattedExecutionResult<Map<String, Object?>,
-          Map<String, Object?>>(data: {'tick': 1}),
+      payload:
+          FormattedExecutionResult<Map<String, Object?>, Map<String, Object?>>(
+              data: {'tick': 1}),
     ));
     tclient.sendMessage(NextMessage(
       id: subscribe.id,
-      payload: FormattedExecutionResult<Map<String, Object?>,
-          Map<String, Object?>>(data: {'tick': 2}),
+      payload:
+          FormattedExecutionResult<Map<String, Object?>, Map<String, Object?>>(
+              data: {'tick': 2}),
     ));
     tclient.sendMessage(CompleteMessage(id: subscribe.id));
 

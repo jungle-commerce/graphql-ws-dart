@@ -31,8 +31,8 @@ void main() {
 
     // Invalid `type` property.
     test('rejects {type: ""}', () {
-      expect(() => validateMessage({'type': ''}),
-          throwsA(isA<FormatException>()));
+      expect(
+          () => validateMessage({'type': ''}), throwsA(isA<FormatException>()));
     });
     test('rejects {type: null}', () {
       // JS uses undefined; in Dart we use null. Same validator path triggers.
@@ -40,8 +40,8 @@ void main() {
           throwsA(isA<FormatException>()));
     });
     test('rejects {type: 0}', () {
-      expect(() => validateMessage({'type': 0}),
-          throwsA(isA<FormatException>()));
+      expect(
+          () => validateMessage({'type': 0}), throwsA(isA<FormatException>()));
     });
     test('rejects {type: "nuxt"}', () {
       expect(() => validateMessage({'type': 'nuxt'}),
@@ -257,7 +257,8 @@ void main() {
       final wire = stringifyMessage(msg);
       final back = parseMessage(wire);
       expect(back, isA<ConnectionInitMessage>());
-      expect((back as ConnectionInitMessage).payload, equals({'auth': 'token'}));
+      expect(
+          (back as ConnectionInitMessage).payload, equals({'auth': 'token'}));
     });
 
     test('round-trips ConnectionInit without payload (no payload key)', () {
@@ -380,7 +381,10 @@ void main() {
       final r = FormattedExecutionResult<Map<String, Object?>,
           Map<String, Object?>>.fromJson(const {
         'errors': [
-          {'message': 'boom', 'path': ['x', 0]}
+          {
+            'message': 'boom',
+            'path': ['x', 0]
+          }
         ],
       });
       expect(r.errors, hasLength(1));

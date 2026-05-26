@@ -28,12 +28,11 @@ Future<void> main(List<String> args) async {
   );
 
   // Lifecycle observation.
-  client.on<ConnectedEvent>(
-      (e) => stderr.writeln('[graphql_ws] connected (recovered=${e.wasRetry})'));
+  client.on<ConnectedEvent>((e) =>
+      stderr.writeln('[graphql_ws] connected (recovered=${e.wasRetry})'));
   client.on<ClosedEvent>(
       (e) => stderr.writeln('[graphql_ws] closed ${e.code} ${e.reason ?? ''}'));
-  client.on<ErrorEvent>(
-      (e) => stderr.writeln('[graphql_ws] error ${e.error}'));
+  client.on<ErrorEvent>((e) => stderr.writeln('[graphql_ws] error ${e.error}'));
 
   // Subscribe via Stream — the recommended Dart-idiomatic API.
   final sub = client
@@ -44,8 +43,7 @@ Future<void> main(List<String> args) async {
       )
       .listen(
         (result) => stdout.writeln('next: ${result.data}'),
-        onError: (Object err) =>
-            stderr.writeln('subscription error: $err'),
+        onError: (Object err) => stderr.writeln('subscription error: $err'),
         onDone: () => stdout.writeln('subscription complete'),
       );
 

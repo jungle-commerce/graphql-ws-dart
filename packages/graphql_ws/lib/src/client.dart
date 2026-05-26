@@ -271,8 +271,7 @@ class _GraphqlWsClient implements Client {
   }
 
   @override
-  void Function()
-      subscribe<TData extends Object?, TExtensions extends Object?>(
+  void Function() subscribe<TData extends Object?, TExtensions extends Object?>(
     SubscribePayload payload,
     GraphqlSink<FormattedExecutionResult<TData, TExtensions>> sink,
   ) {
@@ -561,8 +560,7 @@ class _GraphqlWsClient implements Client {
         // Emit lifecycle events before propagating the failure so listeners
         // observe state changes in the expected order.
         if (normalised is LikeCloseEvent) {
-          _emit(ClosedEvent(
-              code: normalised.code, reason: normalised.reason));
+          _emit(ClosedEvent(code: normalised.code, reason: normalised.reason));
         } else {
           _emit(ErrorEvent(normalised));
           _emit(ClosedEvent(code: null, reason: normalised.toString()));
@@ -633,8 +631,7 @@ class _GraphqlWsClient implements Client {
       }
 
       // onmessage analogue.
-      attempt.messagesSubscription =
-          adapter.messages.listen((String raw) {
+      attempt.messagesSubscription = adapter.messages.listen((String raw) {
         try {
           final message = parseMessage(raw, reviver: jsonMessageReviver);
           _emit(MessageEvent(message));

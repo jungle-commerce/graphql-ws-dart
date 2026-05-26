@@ -78,7 +78,6 @@ class GraphqlWsTestServer {
     return server;
   }
 
-
   late HttpServer _httpServer;
   final Map<String, OperationHandler> _operations = {};
   final Set<_Session> _sessions = {};
@@ -201,8 +200,7 @@ class _Session {
         // while the handler awaits is still rejected.
         _initialised = true;
         final rawPayload = msg['payload'];
-        final payload =
-            rawPayload is Map<String, Object?> ? rawPayload : null;
+        final payload = rawPayload is Map<String, Object?> ? rawPayload : null;
         unawaited(_processInit(payload));
       case 'ping':
         if (_server.respondToPings) {

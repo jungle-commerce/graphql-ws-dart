@@ -27,7 +27,7 @@ graphql-ws-dart/
 └── LICENSE                                          shared across all packages
 ```
 
-**`graphql_ws_flutter` depends on the Flutter SDK.** Because of this the whole workspace is resolved with `flutter pub get` at the root, not `dart pub get`. `dart analyze` still analyzes everything; the Flutter package's tests run under `flutter test`, the other three under `dart test`.
+**`graphql_ws_flutter` depends on the Flutter SDK.** Because of this the whole workspace is resolved with `fvm flutter pub get` at the root, not `dart pub get`. `fvm dart analyze` still analyzes everything; the Flutter package's tests run under `fvm flutter test`, the other three under `fvm dart test`. The Flutter version is pinned via FVM (see `.fvmrc`).
 
 ## Hard constraints
 
@@ -41,18 +41,22 @@ graphql-ws-dart/
 
 ## Common commands
 
+The repo pins Flutter via [FVM](https://fvm.app/). Always prefix `flutter` and `dart` with `fvm` so the pinned version is used.
+
 Run from the repo root — `pub` resolves the whole workspace at once.
 
 ```sh
-flutter pub get                                         # resolve deps across the workspace (Flutter SDK needed)
-dart analyze                                            # analyze every package; 0 issues expected
-dart test packages/graphql_ws                           # run one pure-Dart package's tests
-flutter test packages/graphql_ws_flutter                # run the Flutter package's tests
-dart test packages/graphql_ws/test/client_test.dart     # one file
-dart test -N 'lazy should disconnect after lazyClose'   # one case by name substring (run inside a package dir)
+fvm install                                                      # install the pinned Flutter version (one-time setup)
+fvm flutter pub get                                              # resolve deps across the workspace (Flutter SDK needed)
+fvm dart analyze                                                 # analyze every package; 0 issues expected
+fvm dart test packages/graphql_ws                                # run one pure-Dart package's tests
+fvm flutter test packages/graphql_ws_flutter                     # run the Flutter package's tests
+fvm dart test packages/graphql_ws/test/client_test.dart          # one file
+fvm dart test -N 'lazy should disconnect after lazyClose'        # one case by name substring (run inside a package dir)
+fvm dart format .                                                # format all Dart files (CI checks this)
 ```
 
-For per-package work, `cd` into the package directory and run `dart test`/`dart analyze` directly — that's what most of the existing notes assume.
+For per-package work, `cd` into the package directory and run `fvm dart test`/`fvm dart analyze` directly.
 
 There is no build step.
 

@@ -120,7 +120,9 @@ class _DemoAppState extends State<DemoApp> {
     final now = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
     setState(() {
-      _log.insert(0, '${two(now.hour)}:${two(now.minute)}:${two(now.second)}'
+      _log.insert(
+          0,
+          '${two(now.hour)}:${two(now.minute)}:${two(now.second)}'
           '  $message');
       if (_log.length > 40) _log.removeLast();
     });
@@ -206,8 +208,8 @@ class _StatusChip extends StatelessWidget {
           Icon(Icons.circle, size: 12, color: state.color),
           const SizedBox(width: 8),
           Text(state.label,
-              style: TextStyle(
-                  color: state.color, fontWeight: FontWeight.bold)),
+              style:
+                  TextStyle(color: state.color, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -231,8 +233,7 @@ class _CounterCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               count?.toString() ?? '—',
-              style: const TextStyle(
-                  fontSize: 56, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 56, fontWeight: FontWeight.bold),
             ),
           ],
         ),

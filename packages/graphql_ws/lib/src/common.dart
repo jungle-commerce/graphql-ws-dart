@@ -228,7 +228,8 @@ class GraphQLFormattedError {
   Map<String, Object?> toJson() => <String, Object?>{
         'message': message,
         if (locations != null)
-          'locations': locations!.map((l) => l.toJson()).toList(growable: false),
+          'locations':
+              locations!.map((l) => l.toJson()).toList(growable: false),
         if (path != null) 'path': path,
         if (extensions != null) 'extensions': extensions,
       };
@@ -251,8 +252,7 @@ class GraphQLFormattedError {
               .toList(growable: false)
           : null,
       path: pathRaw is List ? pathRaw.cast<Object>() : null,
-      extensions:
-          extensions is Map ? extensions.cast<String, Object?>() : null,
+      extensions: extensions is Map ? extensions.cast<String, Object?>() : null,
     );
   }
 
@@ -309,8 +309,7 @@ class FormattedExecutionResult<TData extends Object?,
     if (raw is! List) return null;
     return raw
         .whereType<Map<Object?, Object?>>()
-        .map((m) =>
-            GraphQLFormattedError.fromJson(m.cast<String, Object?>()))
+        .map((m) => GraphQLFormattedError.fromJson(m.cast<String, Object?>()))
         .toList(growable: false);
   }
 
@@ -454,8 +453,7 @@ class ErrorMessage extends Message {
   Map<String, Object?> toJson() => <String, Object?>{
         'id': id,
         'type': type.wireValue,
-        'payload':
-            payload.map((e) => e.toJson()).toList(growable: false),
+        'payload': payload.map((e) => e.toJson()).toList(growable: false),
       };
 }
 
@@ -579,8 +577,7 @@ Message validateMessage(Object? val) {
       }
       final operationName = payloadMap['operationName'];
       if (operationName != null && operationName is! String) {
-        throw FormatException(
-            '"${type.wireValue}" message payload expects the '
+        throw FormatException('"${type.wireValue}" message payload expects the '
             "'operationName' property to be a string or nullish or missing, "
             'but got ${_extendedTypeof(operationName)}');
       }
@@ -611,8 +608,8 @@ Message validateMessage(Object? val) {
       }
       return NextMessage(
         id: map['id']! as String,
-        payload: FormattedExecutionResult.fromJson(
-            payload.cast<String, Object?>()),
+        payload:
+            FormattedExecutionResult.fromJson(payload.cast<String, Object?>()),
       );
 
     case MessageType.error:

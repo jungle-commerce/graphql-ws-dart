@@ -16,7 +16,7 @@ jobs:
       # is a workspace member and pulls in the flutter SDK dep).
       - uses: subosito/flutter-action@v2.23.0
         with:
-          channel: stable
+          flutter-version-file: .fvmrc
 
       - name: Get dependencies
         run: flutter pub get

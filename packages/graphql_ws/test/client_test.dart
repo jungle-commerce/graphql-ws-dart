@@ -95,9 +95,10 @@ void main() {
     expect(ev.code, equals(CloseCode.badResponse.code));
     expect(ev.reason, equals('Bad Request'));
     await client.dispose();
-  }, skip: 'Listener-throw-in-connected currently fails close on server side: '
-      'we close with badResponse from the message handler when the listener '
-      'rethrows. Tracked for next iteration.');
+  },
+      skip: 'Listener-throw-in-connected currently fails close on server side: '
+          'we close with badResponse from the message handler when the listener '
+          'rethrows. Tracked for next iteration.');
 
   test('should pass the connectionParams through', () async {
     // Static map literal.
@@ -264,8 +265,9 @@ void main() {
     final sm = await tc.waitForSubscribe(timeout: _fast);
     tc.sendMessage(NextMessage(
       id: sm.id,
-      payload: FormattedExecutionResult<Map<String, Object?>,
-          Map<String, Object?>>(data: const {'getValue': 'raw'}),
+      payload:
+          FormattedExecutionResult<Map<String, Object?>, Map<String, Object?>>(
+              data: const {'getValue': 'raw'}),
     ));
     final r = await sub.waitForNext(timeout: _fast);
     expect(r!.data, equals({'getValue': 'VALUE'}));
@@ -292,8 +294,7 @@ void main() {
     await client.dispose();
   });
 
-  test('should close socket with error on malformed server response',
-      () async {
+  test('should close socket with error on malformed server response', () async {
     final closed = Deferred<ClosedEvent>();
     final client = createClient(
       url: () => server.uri,
@@ -315,8 +316,7 @@ void main() {
     await client.dispose();
   });
 
-  test('should report close causing internal client errors to sinks',
-      () async {
+  test('should report close causing internal client errors to sinks', () async {
     final someErr = StateError('Something went wrong!');
     final client = createClient(
       url: () => server.uri,
@@ -420,8 +420,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       // No reply expected.
       await expectLater(
-          () => tc.waitForRawMessage(
-              timeout: const Duration(milliseconds: 50)),
+          () => tc.waitForRawMessage(timeout: const Duration(milliseconds: 50)),
           throwsA(isA<TimeoutException>()));
     });
 
@@ -436,8 +435,7 @@ void main() {
       tc.sendMessage(const PongMessage());
       // No reply expected.
       await expectLater(
-          () => tc.waitForRawMessage(
-              timeout: const Duration(milliseconds: 50)),
+          () => tc.waitForRawMessage(timeout: const Duration(milliseconds: 50)),
           throwsA(isA<TimeoutException>()));
     });
 
@@ -509,8 +507,7 @@ void main() {
 
   group('query operation', () {
     test('should next the result and then complete', () async {
-      final client =
-          createClient(url: () => server.uri, retryAttempts: 0);
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
       final sub = TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
         client,
         const SubscribePayload(query: 'query { getValue }'),
@@ -543,8 +540,7 @@ void main() {
           extensions: null,
         ),
       ]) {
-        final client =
-            createClient(url: () => server.uri, retryAttempts: 0);
+        final client = createClient(url: () => server.uri, retryAttempts: 0);
         final sub =
             TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
                 client, payload);
@@ -569,8 +565,7 @@ void main() {
 
   group('subscription operation', () {
     test('should next emitted results until disposed', () async {
-      final client =
-          createClient(url: () => server.uri, retryAttempts: 0);
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
       final sub = TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
         client,
         const SubscribePayload(query: 'subscription { ping }'),
@@ -603,8 +598,7 @@ void main() {
     });
 
     test('should emit results to correct distinct sinks', () async {
-      final client =
-          createClient(url: () => server.uri, retryAttempts: 0);
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
       final sub1 = TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
           client, const SubscribePayload(query: 'subscription { a }'));
       final tc = await _ack(server);
@@ -619,8 +613,8 @@ void main() {
           id: s1.id,
           payload: FormattedExecutionResult<Map<String, Object?>,
               Map<String, Object?>>(data: const {'a': 1})));
-      final r2first = await sub2.waitForNext(
-          timeout: const Duration(milliseconds: 50));
+      final r2first =
+          await sub2.waitForNext(timeout: const Duration(milliseconds: 50));
       expect(r2first, isNull); // sub2 did NOT receive sub1's result
       final r1first = await sub1.waitForNext(timeout: _fast);
       expect(r1first!.data, equals({'a': 1}));
@@ -629,8 +623,8 @@ void main() {
           id: s2.id,
           payload: FormattedExecutionResult<Map<String, Object?>,
               Map<String, Object?>>(data: const {'b': 2})));
-      final r1second = await sub1.waitForNext(
-          timeout: const Duration(milliseconds: 50));
+      final r1second =
+          await sub1.waitForNext(timeout: const Duration(milliseconds: 50));
       expect(r1second, isNull);
       final r2second = await sub2.waitForNext(timeout: _fast);
       expect(r2second!.data, equals({'b': 2}));
@@ -662,8 +656,7 @@ void main() {
     });
 
     test('should dispose subscription on server-side complete', () async {
-      final client =
-          createClient(url: () => server.uri, retryAttempts: 0);
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
       final sub = TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
           client, const SubscribePayload(query: '{ getValue }'));
       final tc = await _ack(server);
@@ -690,8 +683,7 @@ void main() {
       await sub.waitForComplete(timeout: _fast);
       // Server must NOT see another Complete from the client.
       await expectLater(
-          () => tc.waitForRawMessage(
-              timeout: const Duration(milliseconds: 50)),
+          () => tc.waitForRawMessage(timeout: const Duration(milliseconds: 50)),
           throwsA(isA<TimeoutException>()));
       await client.dispose();
     });
@@ -705,8 +697,7 @@ void main() {
     test(
         'dispatch and receive even if one subscriber disposes while another '
         'subscribes', () async {
-      final client =
-          createClient(url: () => server.uri, retryAttempts: 0);
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
 
       final sub1 = TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
           client, const SubscribePayload(query: 'subscription { a }'));
@@ -759,8 +750,7 @@ void main() {
       await server.waitForClient(timeout: _fast);
     });
 
-    test('should close socket when disposing while mode is disabled',
-        () async {
+    test('should close socket when disposing while mode is disabled', () async {
       final connected = Deferred<void>();
       final client = createClient(
         url: () => server.uri,
@@ -776,12 +766,10 @@ void main() {
     });
 
     test('should connect on first subscribe when mode is enabled', () async {
-      final client =
-          createClient(url: () => server.uri, retryAttempts: 0);
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
       // No client appears yet.
       await expectLater(
-          () => server.waitForClient(
-              timeout: const Duration(milliseconds: 50)),
+          () => server.waitForClient(timeout: const Duration(milliseconds: 50)),
           throwsA(isA<TimeoutException>()));
 
       TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
@@ -792,8 +780,7 @@ void main() {
 
     test('should disconnect on last unsubscribe when mode is enabled',
         () async {
-      final client =
-          createClient(url: () => server.uri, retryAttempts: 0);
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
 
       final s1 = TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
           client, const SubscribePayload(query: 'subscription { a }'));
@@ -890,7 +877,8 @@ void main() {
       expect(e, isA<LikeCloseEvent>());
     });
 
-    test('should not close connection when subscription disposed multiple times',
+    test(
+        'should not close connection when subscription disposed multiple times',
         () async {
       final client = createClient(url: () => server.uri, retryAttempts: 0);
       final s0 = TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
@@ -1096,8 +1084,8 @@ void main() {
       releaseRetry?.complete();
       // No second client should ever connect.
       await expectLater(
-          () => server.waitForClient(
-              timeout: const Duration(milliseconds: 100)),
+          () =>
+              server.waitForClient(timeout: const Duration(milliseconds: 100)),
           throwsA(isA<TimeoutException>()));
       await client.dispose();
     });
@@ -1228,8 +1216,7 @@ void main() {
 
   group('stream()', () {
     test('streams a single result query and closes on Complete', () async {
-      final client =
-          createClient(url: () => server.uri, retryAttempts: 0);
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
       final stream = client.stream<Map<String, Object?>, Map<String, Object?>>(
           const SubscribePayload(query: '{ getValue }'));
 
@@ -1259,14 +1246,12 @@ void main() {
           const SubscribePayload(query: '{ x }'));
       final errors = <Object>[];
       final done = Deferred<void>();
-      stream.listen((_) {},
-          onError: errors.add, onDone: () => done.resolve());
+      stream.listen((_) {}, onError: errors.add, onDone: () => done.resolve());
 
       final tc = await _ack(server);
       final sm = await tc.waitForSubscribe(timeout: _fast);
       tc.sendMessage(ErrorMessage(
-          id: sm.id,
-          payload: const [GraphQLFormattedError(message: 'boom')]));
+          id: sm.id, payload: const [GraphQLFormattedError(message: 'boom')]));
 
       await done.future.timeout(_fast);
       expect(errors, hasLength(1));
@@ -1351,8 +1336,7 @@ void main() {
       client.on<ClosedEvent>(closed.add);
 
       final tc = await server.waitForClient(timeout: _fast);
-      await tc.waitForMessageOfType(MessageType.connectionInit,
-          timeout: _fast);
+      await tc.waitForMessageOfType(MessageType.connectionInit, timeout: _fast);
       tc.send('not valid json');
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -1362,8 +1346,7 @@ void main() {
     });
 
     test('multiple subscriptions are independently delivered', () async {
-      final client =
-          createClient(url: () => server.uri, retryAttempts: 0);
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
       final subs = <TSubscribe<Map<String, Object?>, Map<String, Object?>>>[];
       for (var i = 0; i < 5; i++) {
         subs.add(TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
@@ -1390,8 +1373,7 @@ void main() {
     });
 
     test('disposes cleanly with in-flight subscriptions', () async {
-      final client =
-          createClient(url: () => server.uri, retryAttempts: 0);
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
       for (var i = 0; i < 3; i++) {
         TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
             client, SubscribePayload(query: 'subscription Sub$i { v }'));

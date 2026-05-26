@@ -33,9 +33,8 @@ class DartIoWebSocketAdapter implements WebSocketAdapter {
     // `io.WebSocket` is a `Stream<dynamic>` carrying either `String` or
     // `List<int>` frames. We coerce to text-only and propagate close on the
     // done future.
-    _messages = _socket
-        .where((Object? frame) => frame is String)
-        .cast<String>();
+    _messages =
+        _socket.where((Object? frame) => frame is String).cast<String>();
     _socket.done.then((Object? _) {
       if (_doneCompleter.isCompleted) return;
       // `dart:io` exposes `closeCode`/`closeReason` reflecting the
@@ -44,10 +43,10 @@ class DartIoWebSocketAdapter implements WebSocketAdapter {
       // to 1005 (No Status Received). In that case, prefer the code we
       // actually requested so consumers see "the close I asked for".
       final code = _socket.closeCode ?? _localCloseCode;
-      final reason = (_socket.closeReason != null &&
-              _socket.closeReason!.isNotEmpty)
-          ? _socket.closeReason
-          : _localCloseReason ?? _socket.closeReason;
+      final reason =
+          (_socket.closeReason != null && _socket.closeReason!.isNotEmpty)
+              ? _socket.closeReason
+              : _localCloseReason ?? _socket.closeReason;
       _doneCompleter.complete(
         WebSocketCloseEvent(
           code: _localCloseInitiated && _localCloseCode != null
