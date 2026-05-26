@@ -288,6 +288,10 @@ Two test layers:
 - **Unit suite** (`test/{common,client,smoke}_test.dart`) — runs against [`test/utils/tserver.dart`](test/utils/tserver.dart), a scriptable `dart:io.HttpServer`-backed mock that drives `ConnectionAck`/`Next`/`Error`/`Complete` frames directly. Fast, dependency-free.
 - **Integration suite** (`test/integration_test.dart`, tagged `integration`) — runs against the in-repo `graphql_ws_test_server` package, a real `shelf` + `shelf_web_socket` graphql-transport-ws server. Exercises the default `DartIoWebSocketAdapter` end-to-end.
 
+## Credits
+
+This library is a Dart port of [graphql-ws](https://github.com/enisdenjo/graphql-ws) by [Denis Badurina](https://github.com/enisdenjo). The protocol semantics, client state machine, retry logic, and test structure are all derived from his work. Thank you Denis. 🙏
+
 ## License
 
-MIT — see [LICENSE](../../LICENSE). Based on the JavaScript [`graphql-ws`](https://github.com/enisdenjo/graphql-ws) client by Denis Badurina.
+MIT — see [LICENSE](../../LICENSE).

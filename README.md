@@ -31,6 +31,10 @@ fvm dart test packages/graphql_ws
 fvm flutter test packages/graphql_ws_flutter
 ```
 
+## Credits
+
+This library is a Dart port of [graphql-ws](https://github.com/enisdenjo/graphql-ws) by [Denis Badurina](https://github.com/enisdenjo). The protocol semantics, client state machine, retry logic, and test structure are all derived from his work. Thank you Denis. 🙏
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
