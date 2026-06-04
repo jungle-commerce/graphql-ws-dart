@@ -4,7 +4,7 @@
 /// Dart port of the JavaScript [`graphql-ws`](https://github.com/enisdenjo/graphql-ws)
 /// package. Implements the [GraphQL over WebSocket Protocol](https://github.com/graphql/graphql-over-http/blob/main/rfcs/GraphQLOverWebSocket.md)
 /// (`graphql-transport-ws` sub-protocol — the only sub-protocol supported).
-library graphql_ws;
+library;
 
 export 'src/client.dart'
     show

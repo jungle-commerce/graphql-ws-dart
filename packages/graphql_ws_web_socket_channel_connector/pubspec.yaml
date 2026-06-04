@@ -19,5 +19,5 @@ dependencies:
 dev_dependencies:
   graphql_ws_test_server:
     path: ../graphql_ws_test_server
-  lints: ^4.0.0
+  lints: ^6.1.0
   test: ^1.25.0

@@ -13,7 +13,7 @@ environment:
 resolution: workspace
 
 dependencies:
-  connectivity_plus: ^6.0.0
+  connectivity_plus: ^7.1.1
   flutter:
     sdk: flutter
   graphql_ws: ^0.1.0
@@ -23,4 +23,4 @@ dev_dependencies:
     sdk: flutter
   graphql_ws_test_server:
     path: ../graphql_ws_test_server
-  lints: ^4.0.0
+  lints: ^6.1.0
