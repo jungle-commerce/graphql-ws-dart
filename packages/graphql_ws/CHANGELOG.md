@@ -1,3 +1,8 @@
+## 0.1.1
+
+- Treat close code 1002 (Protocol Error) as non-fatal/retryable. Android emits 1002 on abrupt network disconnects, not only true protocol violations, so classifying it as fatal tore down subscriptions on every network drop.
+- Normalise a transport failure to *establish* the connection (e.g. `dart:io` throwing `SocketException` on a failed DNS lookup while offline) to an abnormal closure (1006) instead of propagating the raw error. A raw exception bypassed `shouldRetry` and killed the subscription; 1006 is non-fatal, so the retry machinery (and `connectivityAwareRetryWait`'s offline parking) now runs as it does for a mid-session drop. This closes a Dart-vs-JS gap: JS surfaces connection failures as close events, but `dart:io` throws.
+
 ## 0.1.0
 
 - Initial Dart port of [graphql-ws](https://github.com/enisdenjo/graphql-ws) (client only).
