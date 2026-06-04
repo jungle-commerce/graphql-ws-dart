@@ -100,6 +100,8 @@ class TerminatedCloseEvent extends LikeCloseEvent implements Exception {
 /// The library classifies these "normal" codes as **non-fatal** (retryable):
 ///   - 1000 Normal Closure
 ///   - 1001 Going Away
+///   - 1002 Protocol Error (included because Android sends this on abrupt
+///     network disconnects, not only for true protocol violations)
 ///   - 1006 Abnormal Closure
 ///   - 1005 No Status Received
 ///   - 1012 Service Restart
@@ -108,7 +110,7 @@ class TerminatedCloseEvent extends LikeCloseEvent implements Exception {
 ///
 /// All other internal codes in the 1000-1999 range are considered fatal.
 bool isFatalInternalCloseCode(int code) {
-  const nonFatal = <int>{1000, 1001, 1006, 1005, 1012, 1013, 1014};
+  const nonFatal = <int>{1000, 1001, 1002, 1006, 1005, 1012, 1013, 1014};
   if (nonFatal.contains(code)) return false;
   return code >= 1000 && code <= 1999;
 }

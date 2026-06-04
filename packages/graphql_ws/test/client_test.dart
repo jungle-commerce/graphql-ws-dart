@@ -1038,6 +1038,47 @@ void main() {
       await connectingTwice.future.timeout(_fast);
     });
 
+    test('retries connection-establishment failures by default', () async {
+      // Regression guard: a transport failure to *establish* the connection
+      // (e.g. `dart:io` throws SocketException on a failed DNS lookup while
+      // offline) used to bypass the default `shouldRetry` and kill the
+      // subscription. It is now normalised to an abnormal closure (1006), so
+      // retries proceed WITHOUT a custom `shouldRetry`.
+      var connectingCount = 0;
+      final connectingTwice = Deferred<void>();
+      final client = createClient(
+        url: () => Uri.parse('ws://127.0.0.1:1'), // refused — connector throws
+        lazy: false,
+        retryAttempts: 1,
+        retryWait: (_) => Future.value(),
+        onNonLazyError: (_) {},
+        // Note: no `shouldRetry` override — exercising the default.
+      );
+      client.on<ConnectingEvent>((e) {
+        connectingCount++;
+        if (connectingCount == 2 && !connectingTwice.isCompleted) {
+          connectingTwice.resolve();
+        }
+      });
+      await connectingTwice.future.timeout(_fast);
+      await client.dispose();
+    });
+
+    test('normalises a connect-establishment failure to abnormal closure (1006)',
+        () async {
+      final client = createClient(
+        url: () => Uri.parse('ws://127.0.0.1:1'), // refused — connector throws
+        retryAttempts: 0,
+        onNonLazyError: (_) {},
+      );
+      final sub = TSubscribe.start<Map<String, Object?>, Map<String, Object?>>(
+          client, const SubscribePayload(query: '{ x }'));
+      final err = await sub.waitForError(timeout: _fast);
+      expect(err, isA<LikeCloseEvent>());
+      expect((err! as LikeCloseEvent).code, equals(1006));
+      await client.dispose();
+    });
+
     test('non-lazy: keeps lock so retries proceed', () async {
       var attempts = 0;
       final client = createClient(
