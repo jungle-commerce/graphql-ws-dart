@@ -1064,7 +1064,8 @@ void main() {
       await client.dispose();
     });
 
-    test('normalises a connect-establishment failure to abnormal closure (1006)',
+    test(
+        'normalises a connect-establishment failure to abnormal closure (1006)',
         () async {
       final client = createClient(
         url: () => Uri.parse('ws://127.0.0.1:1'), // refused — connector throws
