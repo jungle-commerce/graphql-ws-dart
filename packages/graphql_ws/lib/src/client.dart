@@ -501,7 +501,23 @@ class _GraphqlWsClient implements Client {
       } on Object catch (err) {
         _connecting = null;
         if (identical(_activeAttempt, attempt)) _activeAttempt = null;
-        attempt.failConnecting(err);
+        // A transport-level failure to *establish* the connection (e.g.
+        // `dart:io` throws `SocketException` on a failed DNS lookup while the
+        // device is offline) is not a close event, so it would bypass
+        // `shouldRetry` and kill the subscription. The WebSocket spec models a
+        // connection that never opened as an abnormal closure (1006) — a
+        // non-fatal, retryable code — so normalise to that, preserving the
+        // original error text in the reason for diagnostics. This lets the
+        // retry machinery (and `connectivityAwareRetryWait`'s offline parking)
+        // run as it does for a mid-session drop.
+        attempt.failConnecting(
+          err is LikeCloseEvent
+              ? err
+              : LikeCloseEvent(
+                  code: 1006,
+                  reason: limitCloseReason(err.toString(), 'Abnormal Closure'),
+                ),
+        );
         return;
       }
 

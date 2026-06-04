@@ -3,5 +3,6 @@ tags:
   common:
   client:
   integration:
+  utils:
 
 timeout: 10s
