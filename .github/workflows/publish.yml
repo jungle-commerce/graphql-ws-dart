@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
+      contents: write
     environment: pub.dev
 
     steps:
@@ -34,6 +35,13 @@ jobs:
         working-directory: packages/graphql_ws
       - run: dart pub publish --force
         working-directory: packages/graphql_ws
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${GITHUB_REF_NAME#graphql_ws-v}
+          NOTES=$(awk "/^## $VERSION$/{found=1; next} /^## /{if(found) exit} found" packages/graphql_ws/CHANGELOG.md)
+          gh release create "$GITHUB_REF_NAME" --title "graphql_ws $VERSION" --notes "$NOTES"
 
   # ──────────────────────────────────────────────────────────────
   # graphql_ws_web_socket_channel_connector   tag: graphql_ws_web_socket_channel_connector-v*
@@ -44,6 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
+      contents: write
     environment: pub.dev
 
     steps:
@@ -56,6 +65,13 @@ jobs:
         working-directory: packages/graphql_ws_web_socket_channel_connector
       - run: dart pub publish --force
         working-directory: packages/graphql_ws_web_socket_channel_connector
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${GITHUB_REF_NAME#graphql_ws_web_socket_channel_connector-v}
+          NOTES=$(awk "/^## $VERSION$/{found=1; next} /^## /{if(found) exit} found" packages/graphql_ws_web_socket_channel_connector/CHANGELOG.md)
+          gh release create "$GITHUB_REF_NAME" --title "graphql_ws_web_socket_channel_connector $VERSION" --notes "$NOTES"
 
   # ──────────────────────────────────────────────────────────────
   # graphql_ws_flutter   tag: graphql_ws_flutter-v*
@@ -66,6 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
+      contents: write
     environment: pub.dev
 
     steps:
@@ -78,3 +95,10 @@ jobs:
         working-directory: packages/graphql_ws_flutter
       - run: dart pub publish --force
         working-directory: packages/graphql_ws_flutter
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${GITHUB_REF_NAME#graphql_ws_flutter-v}
+          NOTES=$(awk "/^## $VERSION$/{found=1; next} /^## /{if(found) exit} found" packages/graphql_ws_flutter/CHANGELOG.md)
+          gh release create "$GITHUB_REF_NAME" --title "graphql_ws_flutter $VERSION" --notes "$NOTES"
