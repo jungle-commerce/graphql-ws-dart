@@ -13,7 +13,7 @@ environment:
 resolution: workspace
 
 dependencies:
-  connectivity_plus: ^7.1.1
+  connectivity_plus: ^7.2.0
   flutter:
     sdk: flutter
   graphql_ws: ^0.1.0
