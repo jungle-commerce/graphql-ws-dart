@@ -1,3 +1,7 @@
+## 0.1.2
+
+- `DartIoWebSocketAdapter.isOpen` is `false` as soon as the adapter starts a close. `dart:io` keeps `readyState` at `open` until the peer answers the close, and `WebSocket.add` throws `Bad state: StreamSink is closed` meanwhile. Cancelling a subscription in that window (right after `dispose()`, `terminate()` or a lazy close) made the `Complete` send throw, so `StreamSubscription.cancel()` completed with that error. JS reports `CLOSING` as soon as `close()` is called; this mirrors it.
+
 ## 0.1.1
 
 - Treat close code 1002 (Protocol Error) as non-fatal/retryable. Android emits 1002 on abrupt network disconnects, not only true protocol violations, so classifying it as fatal tore down subscriptions on every network drop.

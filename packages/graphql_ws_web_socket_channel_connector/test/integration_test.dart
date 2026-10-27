@@ -119,6 +119,42 @@ void main() {
     await _eventually(() => cancelled, label: 'server-side stream cancelled');
   });
 
+  test('cancelling the stream right after dispose() completes normally',
+      () async {
+    server.register('infinite', (payload) {
+      return Stream<Map<String, Object?>>.periodic(
+        const Duration(milliseconds: 10),
+        (n) => {
+          'data': {'n': n},
+        },
+      );
+    });
+
+    final client = buildClient();
+    final received = Completer<void>();
+    final sub = client
+        .stream<Map<String, Object?>, Object?>(
+      const SubscribePayload(
+        query: 'subscription Infinite { n }',
+        operationName: 'infinite',
+      ),
+    )
+        .listen(
+      (_) {
+        if (!received.isCompleted) received.complete();
+      },
+      onError: (Object e) {
+        if (!received.isCompleted) received.completeError(e);
+      },
+    );
+
+    await received.future;
+    // The socket is closing but the server has not answered yet.
+    final disposed = client.dispose();
+    await expectLater(sub.cancel(), completes);
+    await disposed;
+  });
+
   test('client disposes cleanly — server sees socket close', () async {
     server.register('hello', (payload) {
       return Stream.value(<String, Object?>{

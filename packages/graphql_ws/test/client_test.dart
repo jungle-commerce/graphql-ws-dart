@@ -1317,6 +1317,39 @@ void main() {
       await client.dispose();
     });
 
+    test('cancelling the stream right after dispose() completes normally',
+        () async {
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
+      final sub = client
+          .stream<Map<String, Object?>, Map<String, Object?>>(
+              const SubscribePayload(query: 'subscription { x }'))
+          .listen((_) {}, onError: (_) {});
+
+      final tc = await _ack(server);
+      await tc.waitForSubscribe(timeout: _fast);
+
+      // The socket is closing but the server has not answered yet.
+      final disposed = client.dispose();
+      await expectLater(sub.cancel(), completes);
+      await disposed;
+    });
+
+    test('cancelling the stream right after terminate() completes normally',
+        () async {
+      final client = createClient(url: () => server.uri, retryAttempts: 0);
+      final sub = client
+          .stream<Map<String, Object?>, Map<String, Object?>>(
+              const SubscribePayload(query: 'subscription { x }'))
+          .listen((_) {}, onError: (_) {});
+
+      final tc = await _ack(server);
+      await tc.waitForSubscribe(timeout: _fast);
+
+      client.terminate();
+      await expectLater(sub.cancel(), completes);
+      await client.dispose();
+    });
+
     test('streams multiple subscription events in order', () async {
       final client = createClient(url: () => server.uri, retryAttempts: 0);
       final stream = client.stream<Map<String, Object?>, Map<String, Object?>>(
