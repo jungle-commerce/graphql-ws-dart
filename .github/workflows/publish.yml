@@ -24,12 +24,24 @@ jobs:
       id-token: write
       contents: write
     environment: pub.dev
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2.23.0
         with:
           flutter-version-file: .fvmrc
+      # flutter-action, unlike dart-lang/setup-dart, does not register a pub.dev
+      # token, and `dart pub publish` then waits for a browser sign-in.
+      - name: Register a pub.dev token from GitHub OIDC
+        shell: bash
+        run: |
+          PUB_TOKEN=$(curl -sSf \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://pub.dev" | jq -er .value)
+          echo "::add-mask::$PUB_TOKEN"
+          echo "PUB_TOKEN=$PUB_TOKEN" >> "$GITHUB_ENV"
+          dart pub token add https://pub.dev --env-var PUB_TOKEN
       - run: flutter pub get
       - run: dart pub publish --dry-run
         working-directory: packages/graphql_ws
@@ -54,12 +66,24 @@ jobs:
       id-token: write
       contents: write
     environment: pub.dev
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2.23.0
         with:
           flutter-version-file: .fvmrc
+      # flutter-action, unlike dart-lang/setup-dart, does not register a pub.dev
+      # token, and `dart pub publish` then waits for a browser sign-in.
+      - name: Register a pub.dev token from GitHub OIDC
+        shell: bash
+        run: |
+          PUB_TOKEN=$(curl -sSf \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://pub.dev" | jq -er .value)
+          echo "::add-mask::$PUB_TOKEN"
+          echo "PUB_TOKEN=$PUB_TOKEN" >> "$GITHUB_ENV"
+          dart pub token add https://pub.dev --env-var PUB_TOKEN
       - run: flutter pub get
       - run: dart pub publish --dry-run
         working-directory: packages/graphql_ws_web_socket_channel_connector
@@ -84,12 +108,24 @@ jobs:
       id-token: write
       contents: write
     environment: pub.dev
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2.23.0
         with:
           flutter-version-file: .fvmrc
+      # flutter-action, unlike dart-lang/setup-dart, does not register a pub.dev
+      # token, and `dart pub publish` then waits for a browser sign-in.
+      - name: Register a pub.dev token from GitHub OIDC
+        shell: bash
+        run: |
+          PUB_TOKEN=$(curl -sSf \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://pub.dev" | jq -er .value)
+          echo "::add-mask::$PUB_TOKEN"
+          echo "PUB_TOKEN=$PUB_TOKEN" >> "$GITHUB_ENV"
+          dart pub token add https://pub.dev --env-var PUB_TOKEN
       - run: flutter pub get
       - run: dart pub publish --dry-run
         working-directory: packages/graphql_ws_flutter
