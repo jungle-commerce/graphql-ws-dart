@@ -78,8 +78,12 @@ class DartIoWebSocketAdapter implements WebSocketAdapter {
   @override
   Future<WebSocketCloseEvent> get done => _doneCompleter.future;
 
+  // `io.WebSocket.close()` closes the sink at once, but `readyState` stays
+  // `open` until the peer's close frame arrives, and `add` throws meanwhile.
+  // JS reports CLOSING as soon as `close()` is called; mirror that.
   @override
-  bool get isOpen => _socket.readyState == io.WebSocket.open;
+  bool get isOpen =>
+      !_localCloseInitiated && _socket.readyState == io.WebSocket.open;
 
   @override
   void sendText(String data) {

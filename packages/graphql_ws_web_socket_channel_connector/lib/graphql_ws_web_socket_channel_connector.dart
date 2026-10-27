@@ -60,6 +60,7 @@ class _ChannelAdapter implements WebSocketAdapter {
   final Completer<WebSocketCloseEvent> _doneCompleter =
       Completer<WebSocketCloseEvent>();
   bool _wasClean = true;
+  bool _localCloseInitiated = false;
   int? _localCloseCode;
   String? _localCloseReason;
 
@@ -69,8 +70,14 @@ class _ChannelAdapter implements WebSocketAdapter {
   @override
   Future<WebSocketCloseEvent> get done => _doneCompleter.future;
 
+  // `closeCode` is set only once the peer answers a local close, and the sink
+  // throws on `add` before that. JS reports CLOSING as soon as `close()` is
+  // called; mirror that.
   @override
-  bool get isOpen => _channel.closeCode == null && !_doneCompleter.isCompleted;
+  bool get isOpen =>
+      !_localCloseInitiated &&
+      _channel.closeCode == null &&
+      !_doneCompleter.isCompleted;
 
   @override
   void sendText(String data) {
@@ -80,6 +87,7 @@ class _ChannelAdapter implements WebSocketAdapter {
 
   @override
   void close([int? code, String? reason]) {
+    _localCloseInitiated = true;
     _localCloseCode = code;
     _localCloseReason = reason;
     _wasClean = code == 1000 || code == null;
